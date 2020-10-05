@@ -12,7 +12,7 @@ from mongoengine import StringField,IntField,ListField,ReferenceField,BooleanFie
 from mongoengine import Document
 from app.api import handle_error, verify_params, master_auth
 from app.common.result import falseReturn, trueReturn
-
+from typing import List
 from app.util.time import get_beijing_time, get_time_range_by_day, ts2beijing
 from app import db
 import GLOBAL
@@ -44,6 +44,7 @@ def copy_to(src, dst):
 
 submit_blueprint = Blueprint('submit', __name__, url_prefix='/submit')
 dockerclient = docker.from_env()
+
 def randstr(length):
     return ''.join([random.choice(string.ascii_letters) for i in range(length)])
 
@@ -137,6 +138,7 @@ class User(Document): #标井号的不能给用户看
                 ).save()
 
 def compiler(lang,plain_path,O2flag = False):
+    """編譯用戶文件，返回值注意需要解包"""
     if lang == 'python3':
         return 'python3',plain_path
     elif lang == 'g++':
@@ -168,16 +170,29 @@ def run_in_sandbox(
                 output_limit=[1<<18 for i in input_files],
                 process_limit=[1<<18 for i in input_files],
                 result_files = [i+'.res' for i in input_files]
-            ):
+            ) -> List[bytes]:
+    """沙箱運行用戶可執行文件，返回文件二進制"""
     container = dockerclient.containers.run('sandbox:sb',detach=True)
     
-    os.system('docker run -dit --network none --name sbsb sandbox:sb')
-    os.system(f'docker cp {executable} sbsb:/bin/sbin')
+    # os.system('docker run -dit --network none --name sbsb sandbox:sb')
+    copy_to(executable, "sbsb:/bin/sbin")
+    # os.system(f'docker cp {executable} sbsb:/bin/sbin')
     for i in input_files:
-        os.system(f'docker cp {i} sbsb:/bin/sbin')
+        copy_to(i, "sbsb:/bin/sbin")
+        # os.system(f'docker cp {i} sbsb:/bin/sbin')
+    out = []
     for p,i in enumerate(input_files):
-        os.system(f'docker exec sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
-        os.system(f'docker cp sbsb:')
+        container.exec_run(f'sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
+        # os.system(f'docker exec sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
+        
+        bits,stat = container.get_archive(output_files[p])
+        print(stat)
+        out.append(bits)
+        # os.system(f'docker cp sbsb:')
+    return out
+
+def checker(problem,participant_ans):
+    
 
 @submit_blueprint.before_request
 def before_request():
@@ -196,6 +211,23 @@ def before_request():
 @verify_params(params=['user', 'file', 'lang', 'problem'])
 def do_submit():
     usr = User.objects(qq=g.data['user']).first()
-    print(User.objects())
+    # print(User.objects())
+    problem = Problem.objects(problem_id=g.data['problem'])
+
+    tmpfile = 'tmp' + randstr(6)
+
+    with open(tmpfile,'wb') as f:
+        f.write(g.data['file'])
+
+
+    exe,*ext = compiler(g.data['lang'],tmpfile,g.data.get('O2',False))
+    res = run_in_sandbox(
+        executable = exe,
+        input_files = problem.input_files,
+        time_limit = problem.time_limit,
+        memory_limit = problem.memory_limit,
+        extargs=' '.join(ext),
+    )
+
     return trueReturn({'info': [_.get_json() for _ in User.objects()]})
 
