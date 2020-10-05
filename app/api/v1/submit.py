@@ -8,35 +8,57 @@ from flask import Blueprint
 from flask import current_app as flaskapp
 from flask import g, jsonify, request
 from mongoengine.queryset.visitor import Q
-
+from mongoengine import StringField,IntField,ListField,ReferenceField,BooleanField,DateTimeField
+from mongoengine import Document
 from app.api import handle_error, verify_params, master_auth
 from app.common.result import falseReturn, trueReturn
 
 from app.util.time import get_beijing_time, get_time_range_by_day, ts2beijing
 from app import db
 import GLOBAL
+import docker
 
 import base64
 import hashlib
 import random
 import string
-submit_blueprint = Blueprint('submit', __name__, url_prefix='/submit')
 
+import tarfile
+
+client = docker.from_env()
+
+def copy_to(src, dst):
+    name, dst = dst.split(':')
+    container = client.containers.get(name)
+
+    os.chdir(os.path.dirname(src))
+    srcname = os.path.basename(src)
+    tar = tarfile.open(src + '.tar', mode='w')
+    try:
+        tar.add(srcname)
+    finally:
+        tar.close()
+
+    data = open(src + '.tar', 'rb').read()
+    container.put_archive(os.path.dirname(dst), data)
+
+submit_blueprint = Blueprint('submit', __name__, url_prefix='/submit')
+dockerclient = docker.from_env()
 def randstr(length):
     return ''.join([random.choice(string.ascii_letters) for i in range(length)])
 
-class Problem(db.Document):
-    problem_id = db.IntField()
-    title = db.StringField()
-    description = db.StringField(default='')
-    pdf = db.StringField(default='')
-    time_limit = db.IntField()
-    memory_limit = db.IntField()
-    inputs = db.ListField(db.StringField()) # spj和经典数据应该至少存在一组
-    outputs = db.ListField(db.StringField())
-    sp_inputs = db.ListField(db.StringField(),default=[])
-    sp_outputs = db.ListField(db.StringField(),default=[])
-    interactor = db.ListField(db.StringField(),default=[]) # 交互题？
+class Problem(Document):
+    problem_id = IntField()
+    title = StringField()
+    description = StringField(default='')
+    pdf = StringField(default='')
+    time_limit = IntField()
+    memory_limit = IntField()
+    inputs = ListField(StringField()) # spj和经典数据应该至少存在一组
+    outputs = ListField(StringField())
+    sp_inputs = ListField(StringField(),default=[])
+    sp_outputs = ListField(StringField(),default=[])
+    interactor = ListField(StringField(),default=[]) # 交互题？
 
     def get_json(self) -> dict:
         return {
@@ -48,16 +70,16 @@ class Problem(db.Document):
             'memory_limit': self.memory_limit
         }
 
-class Submit(db.Document):
-    problem = db.ReferenceField(Problem)
-    submit_id = db.IntField()
-    score = db.IntField()
-    verdict = db.ListField(db.StringField())
-    runtime = db.ListField(db.IntField()) # ms
-    memory = db.ListField(db.IntField()) # KB
-    plain = db.StringField() # 可能要鉴权,别人的代码有著作权的
-    share = db.BooleanField(default=False)
-    time = db.DateTimeField()
+class Submit(Document):
+    problem = ReferenceField(Problem)
+    submit_id = IntField()
+    score = IntField()
+    verdict = ListField(StringField())
+    runtime = ListField(IntField()) # ms
+    memory = ListField(IntField()) # KB
+    plain = StringField() # 可能要鉴权,别人的代码有著作权的
+    share = BooleanField(default=False)
+    time = DateTimeField()
 
     def get_json(self) -> dict:
         if self.share:
@@ -82,15 +104,15 @@ class Submit(db.Document):
                 'time':self.time
             }
 
-class User(db.Document): #标井号的不能给用户看
-    qq = db.IntField() #
+class User(Document): #标井号的不能给用户看
+    qq = IntField() #
 
-    nickname = db.StringField(default='')
+    nickname = StringField(default='')
 
-    solved = db.ListField(db.ReferenceField(Problem),default=[])
-    tried = db.ListField(db.ReferenceField(Problem),default=[])
+    solved = ListField(ReferenceField(Problem),default=[])
+    tried = ListField(ReferenceField(Problem),default=[])
     
-    submits = db.ListField(db.ReferenceField(Submit),default=[])
+    submits = ListField(ReferenceField(Submit),default=[])
 
     def get_json(self) -> dict:
         return {
@@ -101,6 +123,7 @@ class User(db.Document): #标井号的不能给用户看
             'nickname':self.nickname
         }
 
+    @staticmethod
     def get_or_create(qq):
         _t = User.objects(qq=int(qq))
         if _t:
@@ -146,6 +169,8 @@ def run_in_sandbox(
                 process_limit=[1<<18 for i in input_files],
                 result_files = [i+'.res' for i in input_files]
             ):
+    container = dockerclient.containers.run('sandbox:sb',detach=True)
+    
     os.system('docker run -dit --network none --name sbsb sandbox:sb')
     os.system(f'docker cp {executable} sbsb:/bin/sbin')
     for i in input_files:
