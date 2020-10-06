@@ -156,43 +156,69 @@ def compiler(lang,plain_path,O2flag = False):
     else:
         return ''
 
-def run_in_sandbox( 
-                executable:str,
-                input_files:list,
-                time_limit:list,
-                memory_limit:list,
-                extargs = '',
-                output_files=[i+'.out' for i in input_files],
-                error_files = [i+'.err' for i in input_files],
-                time_limit_reverse=[0 for i in input_files],
-                memory_limit_reverse=[0 for i in input_files],
-                large_stack=[1<<18 for i in input_files],
-                output_limit=[1<<18 for i in input_files],
-                process_limit=[1<<18 for i in input_files],
-                result_files = [i+'.res' for i in input_files]
-            ) -> List[bytes]:
-    """沙箱運行用戶可執行文件，返回文件二進制"""
+def sandbox_run(
+    container,
+    executable:str,
+    input_file:str,
+    time_limit = 10,
+    time_limit_reverse = 0,
+    memory_limit = 1<<19, # 512M
+    memory_limit_reverse = 0,
+    large_stack = 1<<19,
+    output_limit = 1<<19<<4, # 8M
+    process_limit = 1<<19<<4,
+    extargs = ''
+):
+    output_file:str = input_file + '.out'
+    result_file = input_file + '.res'
+    error_file:str = input_file + '.err'
+
+    container.exec_run(f'sb.elf {executable} {input_file} {output_file} {error_file} {time_limit} {time_limit_reverse} {memory_limit} {memory_limit_reverse} {large_stack} {output_limit} {process_limit} {result_files} {extargs}')
+    return {
+        'res':dict(zip(['bits','stat'],container.get_archive(result_file))),
+        'out':dict(zip(['bits','stat'],container.get_archive(output_file))),
+        'err':dict(zip(['bits','stat'],container.get_archive(error_file))),
+    }
+
+def container_init(exe):
     container = dockerclient.containers.run('sandbox:sb',detach=True)
-    
+    copy_to(exe,"sbsb:/bin/sbin")
+    return container
+
+def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
+    """沙箱運行用戶可執行文件，返回文件二進制"""
+    container=container_init(executable)    
     # os.system('docker run -dit --network none --name sbsb sandbox:sb')
-    copy_to(executable, "sbsb:/bin/sbin")
+
     # os.system(f'docker cp {executable} sbsb:/bin/sbin')
-    for i in input_files:
+    for i in problem.input_files:
         copy_to(i, "sbsb:/bin/sbin")
         # os.system(f'docker cp {i} sbsb:/bin/sbin')
     out = []
-    for p,i in enumerate(input_files):
-        container.exec_run(f'sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
+    for p,i in enumerate(problem.input_files):
+        out.append(sandbox_run(
+            container,
+            executable,
+            i
+        ))
         # os.system(f'docker exec sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
         
-        bits,stat = container.get_archive(output_files[p])
-        print(stat)
-        out.append(bits)
+        out[-1]['verdict'] = checker(problem,out[-1]['out'],p)
+        print(out[-1])
         # os.system(f'docker cp sbsb:')
     return out
 
-def checker(problem,participant_ans):
-    
+def checker(problem,participant_ans,itr):
+    out = participant_ans.strip().split()
+    if len(problem.outputs)<itr:
+        ans = open(problem.outputs[itr],'rb').read().strip().split()
+        if len(ans) != len(out):
+            return '''[Presentation Error] Length of participant's answer and jury's answer are not equal even after strip().'''
+        for p,i,j in zip(range(len(ans)),ans,out):
+            if i.strip()!=j.strip():
+                return f'''[Wrong Answer] Line {p} differs: Expected {i}, Read {j}.'''
+        return '''[Accepted]'''
+    return '''[No Test Data]'''
 
 @submit_blueprint.before_request
 def before_request():
@@ -221,13 +247,10 @@ def do_submit():
 
 
     exe,*ext = compiler(g.data['lang'],tmpfile,g.data.get('O2',False))
-    res = run_in_sandbox(
+    res = judge_mainwork(
         executable = exe,
-        input_files = problem.input_files,
-        time_limit = problem.time_limit,
-        memory_limit = problem.memory_limit,
-        extargs=' '.join(ext),
+        problem = problem
     )
 
-    return trueReturn({'info': [_.get_json() for _ in User.objects()]})
+    return trueReturn({'result': res})
 
