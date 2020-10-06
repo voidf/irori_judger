@@ -159,9 +159,9 @@ def compiler(lang, plain_path, O2flag = False):
         return 'python3', plain_path
     elif lang == 'g++':
         if O2flag:
-            os.system(f'g++ -x cpp {plain_path} -static -O2 -o {plain_path}.elf')
+            os.system(f'g++ -x c++ {plain_path} -static -O2 -o {plain_path}.elf')
         else:
-            os.system(f'g++ -x cpp {plain_path} -static -o {plain_path}.elf')
+            os.system(f'g++ -x c++ {plain_path} -static -o {plain_path}.elf')
         return f'{plain_path}.elf'
     elif lang == 'gcc':
         if O2flag:
