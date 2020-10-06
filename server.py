@@ -86,11 +86,11 @@ class User(Document): #标井号的不能给用户看
 
     @staticmethod
     def get_or_create(qq):
-        _t = User.objects(qq=int(qq))
+        _t = User.objects(qq=str(qq))
         if _t:
             return _t.first()
         else:
-            return User(qq=int(qq)).save()
+            return User(qq=str(qq)).save()
 
 class Submit(Document):
     problem = ReferenceField(Problem)
