@@ -370,7 +370,7 @@ def submit():
         executable = exe,
         problem = problem
     )
-    asyncio.ensure_future(rmTmpFile(tmpfile))
+    asyncio.ensure_future(rmTmpFile(exe))
     
     return trueReturn({'result': res})
 
