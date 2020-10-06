@@ -197,6 +197,8 @@ def sandbox_run(
     }
 
 def container_init(exe):
+    try: client.containers.get('sbsb').remove()
+    except: pass
     container = client.containers.run('sandbox:sb', detach=True, name='sbsb')
     copy_to(exe,"sbsb:/bin/sbin")
     return container
