@@ -131,20 +131,23 @@ class Submit(Document):
 
 # """General utils"""
 def copy_to(src, dst):
+    print(src, dst)
     name, dst = dst.split(':')
     container = client.containers.get(name)
 
     # os.chdir(os.path.dirname(src))
     # srcname = os.path.basename(src)
-    tar = tarfile.open(src + '.tar', mode='w')
+    f_n = f'{src}.tar'
+    with open(f_n, 'w') as f: pass
+    tar = tarfile.open(f_n, mode='w')
     try:
         tar.add(src)
     finally:
         tar.close()
 
-    data = open(src + '.tar', 'rb').read()
+    data = open(f_n, 'rb').read()
     container.put_archive(os.path.dirname(dst), data)
-    os.remove(src + '.tar')
+    os.remove(f_n)
 
 async def rmTmpFile(fi:str):
     await asyncio.sleep(60)
@@ -362,7 +365,7 @@ def submit():
     usr = User.get_or_create(qq=g.data['user'])
     problem = Problem.objects(problem_id=g.data['problem'])
     
-    tmpfile = f'Submit/tmp{usr.qq}_{datetime.datetime.now().timestamp()}{file_extension[g.data["lang"]]}' 
+    tmpfile = f'Submit/tmp{usr.qq}_{datetime.datetime.now().timestamp()}.{file_extension[g.data["lang"]]}' 
 
     with open(tmpfile, 'w', encoding='utf-8') as f:
         f.write(g.data['file'])
