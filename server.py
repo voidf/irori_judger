@@ -159,7 +159,7 @@ def randstr(length):
 def compiler(lang, plain_path, O2flag=False) -> str:
     """編譯用戶文件，返回值注意需要解包"""
     if lang == 'python3':
-        return 'python3', plain_path
+        return f'python3 {plain_path}'
     elif lang == 'g++':
         if O2flag:
             os.system(f'g++ -x c++ {plain_path} -static -O2 -o {plain_path}.elf')
@@ -208,7 +208,8 @@ def container_init(exe):
 
 def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
     """沙箱運行用戶可執行文件，返回文件二進制"""
-    container = container_init(executable)    
+    realexe = executable.split()[0]
+    container = container_init(realexe)    
     # os.system('docker run -dit --network none --name sbsb sandbox:sb')
 
     # os.system(f'docker cp {executable} sbsb:/bin/sbin')
@@ -370,8 +371,8 @@ def submit():
     with open(tmpfile, 'w', encoding='utf-8') as f:
         f.write(g.data['file'])
 
-    exe, *ext = compiler(g.data['lang'], tmpfile, g.data.get('O2', False))
-    print(exe, ext)
+    exe = compiler(g.data['lang'], tmpfile, g.data.get('O2', False))
+    print(exe)
     res = judge_mainwork(
         executable=exe,
         problem=problem
