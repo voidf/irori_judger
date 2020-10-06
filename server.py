@@ -39,7 +39,7 @@ class Config():
 
 # """Data Models"""
 class Problem(Document):
-    problem_id = IntField()
+    problem_id = StringField()
     title = StringField()
     description = StringField(default='')
     pdf = StringField(default='')
@@ -412,6 +412,12 @@ def problem_upload():
     P = Problem(**g.data).save()
 
     return trueReturn({'problem': P.get_json()})
+
+@app.route('/problem/import', methods=['POST'])
+@handle_error
+@verify_params(params=['problem_id', 'title', 'description', 'time_limit', 'memory_limit'])
+def problem_import(): return trueReturn({'problem': Problem(**g.data).save().get_json()})
+
 
 
 if __name__ == '__main__':
