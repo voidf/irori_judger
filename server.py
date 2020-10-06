@@ -19,6 +19,7 @@ import re
 import GLOBAL
 import docker
 import tarfile
+import asyncio
 from flask import current_app as flaskapp
 
 from typing import List, Optional, Union
@@ -143,6 +144,10 @@ def copy_to(src, dst):
 
     data = open(src + '.tar', 'rb').read()
     container.put_archive(os.path.dirname(dst), data)
+
+async def rmTmpFile(fi:str):
+    await asyncio.sleep(60)
+    os.remove(fi)
 
 def randstr(length):
     return ''.join([random.choice(string.ascii_letters) for i in range(length)])
@@ -357,6 +362,7 @@ def submit():
         executable = exe,
         problem = problem
     )
+    asyncio.ensure_future(rmTmpFile(tmpfile))
     
     return trueReturn({'result': res})
 
