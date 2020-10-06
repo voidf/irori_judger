@@ -1,4 +1,4 @@
-sudo apt-get install \
+sudo apt-get install -y \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -11,4 +11,4 @@ sudo add-apt-repository \
 $(lsb_release -cs) \
 stable"
 sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io
+sudo apt-get -y install docker-ce docker-ce-cli containerd.io
