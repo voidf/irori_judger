@@ -156,7 +156,7 @@ async def rmTmpFile(fi:str):
 def randstr(length):
     return ''.join([random.choice(string.ascii_letters) for i in range(length)])
 
-def compiler(lang, plain_path, O2flag = False):
+def compiler(lang, plain_path, O2flag=False) -> str:
     """編譯用戶文件，返回值注意需要解包"""
     if lang == 'python3':
         return 'python3', plain_path
@@ -208,7 +208,7 @@ def container_init(exe):
 
 def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
     """沙箱運行用戶可執行文件，返回文件二進制"""
-    container=container_init(executable)    
+    container = container_init(executable)    
     # os.system('docker run -dit --network none --name sbsb sandbox:sb')
 
     # os.system(f'docker cp {executable} sbsb:/bin/sbin')
@@ -371,9 +371,10 @@ def submit():
         f.write(g.data['file'])
 
     exe, *ext = compiler(g.data['lang'], tmpfile, g.data.get('O2', False))
+    print(exe, ext)
     res = judge_mainwork(
-        executable = exe,
-        problem = problem
+        executable=exe,
+        problem=problem
     )
     asyncio.ensure_future(rmTmpFile(exe))
     
