@@ -144,6 +144,7 @@ def copy_to(src, dst):
 
     data = open(src + '.tar', 'rb').read()
     container.put_archive(os.path.dirname(dst), data)
+    os.remove(src + '.tar')
 
 async def rmTmpFile(fi:str):
     await asyncio.sleep(60)
@@ -196,7 +197,7 @@ def sandbox_run(
     }
 
 def container_init(exe):
-    container = client.containers.run('sandbox:sb',detach=True)
+    container = client.containers.run('sandbox:sb', detach=True, name='sbsb')
     copy_to(exe,"sbsb:/bin/sbin")
     return container
 
