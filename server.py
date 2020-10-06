@@ -153,21 +153,21 @@ async def rmTmpFile(fi:str):
 def randstr(length):
     return ''.join([random.choice(string.ascii_letters) for i in range(length)])
 
-def compiler(lang,plain_path,O2flag = False):
+def compiler(lang, plain_path, O2flag = False):
     """編譯用戶文件，返回值注意需要解包"""
     if lang == 'python3':
         return 'python3', plain_path
     elif lang == 'g++':
         if O2flag:
-            os.system(f'g++ {plain_path} -static -O2 -o {plain_path}.elf')
+            os.system(f'g++ -x cpp {plain_path} -static -O2 -o {plain_path}.elf')
         else:
-            os.system(f'g++ {plain_path} -static -o {plain_path}.elf')
+            os.system(f'g++ -x cpp {plain_path} -static -o {plain_path}.elf')
         return f'{plain_path}.elf'
     elif lang == 'gcc':
         if O2flag:
-            os.system(f'gcc {plain_path} -static -O2 -o {plain_path}.elf')
+            os.system(f'gcc -x c {plain_path} -static -O2 -o {plain_path}.elf')
         else:
-            os.system(f'gcc {plain_path} -static -o {plain_path}.elf')
+            os.system(f'gcc -x c {plain_path} -static -o {plain_path}.elf')
         return f'{plain_path}.elf'
     else:
         return ''
@@ -320,6 +320,8 @@ if not os.path.exists('./lock'):
     except: traceback.print_exc()
     try: os.mkdir('Output')
     except: traceback.print_exc()
+    try: os.mkdir('Submit')
+    except: traceback.print_exc()
     open('./lock', 'w').close()
     print("success")
 
@@ -344,7 +346,11 @@ def before_request():
         return falseReturn(None, "data error")
 
 
-
+file_extension = {
+    'g++':'cpp',
+    'gcc':'c',
+    'python3':'py'
+}
 
 
 @app.route('/submit', methods=['POST'])
@@ -353,7 +359,7 @@ def before_request():
 def submit():
     usr = User.get_or_create(qq=g.data['user'])
     problem = Problem.objects(problem_id=g.data['problem'])
-    tmpfile = 'tmp' + randstr(6)
+    tmpfile = f'tmp{usr.qq}_{datetime.datetime.now().timestamp()}'
 
     with open(tmpfile, 'w', encoding='utf-8') as f:
         f.write(g.data['file'])
