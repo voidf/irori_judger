@@ -46,7 +46,9 @@ class Problem(Document):
     time_limit = IntField()
     memory_limit = IntField()
     inputs = ListField(StringField(), default=[]) # spj和经典数据应该至少存在一组
+    sample_inputs = ListField(StringField(), default=[])
     outputs = ListField(StringField(), default=[])
+    sample_outputs = ListField(StringField(), default=[])
     sp_inputs = ListField(StringField(), default=[])
     sp_inputs_lang = StringField()
     sp_outputs = ListField(StringField(), default=[])
