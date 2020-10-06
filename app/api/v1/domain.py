@@ -41,7 +41,7 @@ def continue_handler(usr,l:list,s:int,j:dict,is_first_arrive:bool, progress:str=
         l.append(j[progress][s])
 
         if j[progress][s]['action'] == 'jump':
-            usr,s,j,progress = event_updater(usr,j[progress][s]['to'],j,s)
+            usr, s, j, progress = event_updater(usr,j[progress][s]['to'],j,s)
             continue
 
         if 'MORE' in j[progress][s]:

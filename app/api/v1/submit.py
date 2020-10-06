@@ -43,7 +43,7 @@ def copy_to(src, dst):
     container.put_archive(os.path.dirname(dst), data)
 
 submit_blueprint = Blueprint('submit', __name__, url_prefix='/submit')
-dockerclient = docker.from_env()
+
 
 def randstr(length):
     return ''.join([random.choice(string.ascii_letters) for i in range(length)])
@@ -58,6 +58,7 @@ class Problem(Document):
     inputs = ListField(StringField()) # spj和经典数据应该至少存在一组
     outputs = ListField(StringField())
     sp_inputs = ListField(StringField(),default=[])
+    sp_inputs_lang = StringField()
     sp_outputs = ListField(StringField(),default=[])
     interactor = ListField(StringField(),default=[]) # 交互题？
 
@@ -251,6 +252,8 @@ def do_submit():
         executable = exe,
         problem = problem
     )
-
+    
     return trueReturn({'result': res})
+
+
 
