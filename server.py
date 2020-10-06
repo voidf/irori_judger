@@ -66,6 +66,31 @@ class Problem(Document):
             'memory_limit': self.memory_limit
         }
 
+class User(Document): #标井号的不能给用户看
+    qq = StringField() #
+
+    nickname = StringField(default='')
+
+    solved = ListField(ReferenceField(Problem),default=[])
+    tried = ListField(ReferenceField(Problem),default=[])
+    
+    def get_json(self) -> dict:
+        return {
+            'qq': self.qq,
+            'solved': self.solved,
+            'tried': self.tried,
+            'submits': self.submits,
+            'nickname':self.nickname
+        }
+
+    @staticmethod
+    def get_or_create(qq):
+        _t = User.objects(qq=int(qq))
+        if _t:
+            return _t.first()
+        else:
+            return User(qq=int(qq)).save()
+
 class Submit(Document):
     problem = ReferenceField(Problem)
     submit_id = IntField()
@@ -76,6 +101,7 @@ class Submit(Document):
     plain = StringField() # 可能要鉴权,别人的代码有著作权的
     share = BooleanField(default=False)
     time = DateTimeField()
+    user = ReferenceField(User)
 
     def get_json(self) -> dict:
         if self.share:
@@ -100,37 +126,7 @@ class Submit(Document):
                 'time':self.time
             }
 
-class User(Document): #标井号的不能给用户看
-    qq = IntField() #
 
-    nickname = StringField(default='')
-
-    solved = ListField(ReferenceField(Problem),default=[])
-    tried = ListField(ReferenceField(Problem),default=[])
-    
-    submits = ListField(ReferenceField(Submit),default=[])
-
-    def get_json(self) -> dict:
-        return {
-            'qq': self.qq,
-            'solved': self.solved,
-            'tried': self.tried,
-            'submits': self.submits,
-            'nickname':self.nickname
-        }
-
-    @staticmethod
-    def get_or_create(qq):
-        _t = User.objects(qq=int(qq))
-        if _t:
-            return _t.first()
-        else:
-            return User(
-                    qq=int(qq),
-                    nickname=hashlib.md5(
-                        hashlib.md5(bytes(str(qq),'utf-8')).digest()
-                    ).hexdigest()[:8]
-                ).save()
 
 # """General utils"""
 def copy_to(src, dst):
@@ -349,7 +345,7 @@ def before_request():
 @handle_error
 @verify_params(params=['user', 'file', 'lang', 'problem'])
 def submit():
-    usr = User.objects(qq=g.data['user']).first()
+    usr = User.get_or_create(qq=g.data['user'])
     problem = Problem.objects(problem_id=g.data['problem'])
     tmpfile = 'tmp' + randstr(6)
 
@@ -368,7 +364,7 @@ def submit():
 @handle_error
 @verify_params(params=['user', 'title', 'description', 'time_limit', 'memory_limit'])
 def problem_upload():
-    usr = User.objects(qq=g.data['user']).first()
+    usr = User.get_or_create(qq=g.data['user'])
     g.data['problem_id'] = len(Problem.objects())
     if 'pdf' in g.data: g.data['pdf'] = uploadToChaoXing(g.data['pdf'])
     if 'inputs' in g.data: # bytes
