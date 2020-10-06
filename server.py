@@ -134,11 +134,11 @@ def copy_to(src, dst):
     name, dst = dst.split(':')
     container = client.containers.get(name)
 
-    os.chdir(os.path.dirname(src))
-    srcname = os.path.basename(src)
+    # os.chdir(os.path.dirname(src))
+    # srcname = os.path.basename(src)
     tar = tarfile.open(src + '.tar', mode='w')
     try:
-        tar.add(srcname)
+        tar.add(src)
     finally:
         tar.close()
 
@@ -191,9 +191,9 @@ def sandbox_run(
 
     container.exec_run(f'sb.elf {executable} {input_file} {output_file} {error_file} {time_limit} {time_limit_reverse} {memory_limit} {memory_limit_reverse} {large_stack} {output_limit} {process_limit} {result_files} {extargs}')
     return {
-        'res':dict(zip(['bits','stat'],container.get_archive(result_file))),
-        'out':dict(zip(['bits','stat'],container.get_archive(output_file))),
-        'err':dict(zip(['bits','stat'],container.get_archive(error_file))),
+        'res':dict(zip(['bits', 'stat'],container.get_archive(result_file))),
+        'out':dict(zip(['bits', 'stat'],container.get_archive(output_file))),
+        'err':dict(zip(['bits', 'stat'],container.get_archive(error_file))),
     }
 
 def container_init(exe):
