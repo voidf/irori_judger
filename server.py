@@ -146,6 +146,7 @@ def copy_to(src, dst):
         tar.close()
 
     data = open(f_n, 'rb').read()
+    print(os.path.dirname(dst))
     container.put_archive(os.path.dirname(dst), data)
     os.remove(f_n)
 
@@ -188,11 +189,12 @@ def sandbox_run(
     process_limit = 1<<19<<4,
     extargs = ''
 ):
-    output_file:str = input_file + '.out'
-    result_file = input_file + '.res'
-    error_file:str = input_file + '.err'
-
-    container.exec_run(f'sb.elf {executable} {input_file} {output_file} {error_file} {time_limit} {time_limit_reverse} {memory_limit} {memory_limit_reverse} {large_stack} {output_limit} {process_limit} {result_files} {extargs}')
+    output_file:str = '/sandbox/' + input_file + '.out'
+    result_file = f'/RESULT.res'
+    error_file:str = '/sandbox/' + input_file + '.err'
+    print(f'sb.elf {executable} {input_file} {output_file} {error_file} {time_limit} {time_limit_reverse} {memory_limit} {memory_limit_reverse} {large_stack} {output_limit} {process_limit} {result_file} {extargs}')
+    container.exec_run('chmod 777 -R /sandbox')
+    container.exec_run(f'sb.elf {executable} {input_file} {output_file} {error_file} {time_limit} {time_limit_reverse} {memory_limit} {memory_limit_reverse} {large_stack} {output_limit} {process_limit} {result_file} {extargs}')
     return {
         'res':dict(zip(['bits', 'stat'],container.get_archive(result_file))),
         'out':dict(zip(['bits', 'stat'],container.get_archive(output_file))),
@@ -200,10 +202,10 @@ def sandbox_run(
     }
 
 def container_init(exe):
-    try: client.containers.get('sbsb').remove()
+    try: client.containers.get('sbsb').remove(force=True)
     except: pass
-    container = client.containers.run('sandbox:sb', detach=True, name='sbsb')
-    copy_to(exe,"sbsb:/bin/sbin")
+    container = client.containers.run('sandbox:sb', stdin_open=True, detach=True, name='sbsb', tty=True, network_disabled=True)
+    copy_to(exe,"sbsb:/sandbox/")
     return container
 
 def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
@@ -212,12 +214,12 @@ def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
     container = container_init(realexe)    
     # os.system('docker run -dit --network none --name sbsb sandbox:sb')
 
-    # os.system(f'docker cp {executable} sbsb:/bin/sbin')
-    for i in problem.input_files:
-        copy_to(i, "sbsb:/bin/sbin")
-        # os.system(f'docker cp {i} sbsb:/bin/sbin')
+    # os.system(f'docker cp {executable} sbsb:/usr/sbin/')
+    for i in problem.inputs:
+        copy_to(i, "sbsb:/sandbox/")
+        # os.system(f'docker cp {i} sbsb:/usr/sbin/')
     out = []
-    for p,i in enumerate(problem.input_files):
+    for p,i in enumerate(problem.inputs):
         out.append(sandbox_run(
             container,
             executable,

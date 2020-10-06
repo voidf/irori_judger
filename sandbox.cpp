@@ -8,7 +8,10 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/types.h>
-
+#include <unistd.h>
+// #include <bits/stdc++.h>
+// #include <iostream>
+#include <limits.h>
 #define LOG
 
 const pid_t SANDBOX_UID = 1111;
@@ -24,13 +27,13 @@ unsigned long parse_long(char *str)
 
 pid_t pid;
 long time_limit_to_watch;
-bool time_limit_exceeded_killed;
+char time_limit_exceeded_killed;
 
 void *watcher_thread(void *arg)
 {
     sleep(time_limit_to_watch);
     kill(pid, SIGKILL);
-    time_limit_exceeded_killed = true;
+    time_limit_exceeded_killed = 1;
     return arg; // Avoid 'parameter set but not used' warning
 }
 
@@ -197,30 +200,56 @@ int main(int argc, char **argv)
         }
 
 #ifdef LOG
+        char inpwd[300];
+        char outpwd[300];
+        char errpwd[300];
+        
+        
+        // file_stdin = pwd;
+        // puts(pwd);
+        // realpath(file_stdout,pwd);
+        // file_stdout = pwd;
+        // realpath(file_stderr,pwd);
+        // file_stderr = pwd;
         puts("Entering target program...");
 #endif
 
         chdir("/sandbox");
+        system("pwd");
+        system("ls");
+        
 
         setuid(SANDBOX_UID);
         setgid(SANDBOX_GID);
-
-        if (strlen(file_stdin))
-            freopen(file_stdin, "r", stdin);
+        realpath(file_stdin,inpwd);
+        
+        file_stdin = inpwd;
+        realpath(file_stdout,outpwd);
+        file_stdout = outpwd;
+        realpath(file_stderr,errpwd);
+        file_stderr = errpwd;
+        puts(file_stdin);
+        if (strlen(file_stdin)){
+            puts("INIF1");
+            freopen(file_stdin, "r", stdin);}
         else
             freopen("/dev/null", "r", stdin);
-
-        if (strlen(file_stdout))
-            freopen(file_stdout, "w", stdout);
+        puts(file_stdout);
+        puts("CONVERTED STDIN");
+        if (strlen(file_stdout)){
+            puts("INIF2");
+            freopen(file_stdout, "w", stdout);}
         else
             freopen("/dev/null", "w", stdout);
-
+        puts("CONVERTED STDOUT");
         if (strlen(file_stderr))
             freopen(file_stderr, "w", stderr);
         else
             freopen("/dev/null", "w", stderr);
 
         execlp(program, program, extargs, NULL);
+
+        puts("DONE");
     }
 
     return 0;
