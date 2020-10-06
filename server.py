@@ -359,6 +359,7 @@ file_extension = {
 def submit():
     usr = User.get_or_create(qq=g.data['user'])
     problem = Problem.objects(problem_id=g.data['problem'])
+    
     tmpfile = f'Submit/tmp{usr.qq}_{datetime.datetime.now().timestamp()}{file_extension[g.data["lang"]]}' 
 
     with open(tmpfile, 'w', encoding='utf-8') as f:
