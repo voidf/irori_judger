@@ -155,7 +155,7 @@ def randstr(length):
 def compiler(lang,plain_path,O2flag = False):
     """編譯用戶文件，返回值注意需要解包"""
     if lang == 'python3':
-        return 'python3',plain_path
+        return 'python3', plain_path
     elif lang == 'g++':
         if O2flag:
             os.system(f'g++ {plain_path} -static -O2 -o {plain_path}.elf')
@@ -354,7 +354,7 @@ def submit():
     problem = Problem.objects(problem_id=g.data['problem'])
     tmpfile = 'tmp' + randstr(6)
 
-    with open(tmpfile, 'wb') as f:
+    with open(tmpfile, 'w', encoding='utf-8') as f:
         f.write(g.data['file'])
 
     exe, *ext = compiler(g.data['lang'], tmpfile, g.data.get('O2', False))
