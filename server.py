@@ -364,7 +364,7 @@ file_extension = {
 @verify_params(params=['user', 'file', 'lang', 'problem'])
 def submit():
     usr = User.get_or_create(qq=g.data['user'])
-    problem = Problem.objects(problem_id=g.data['problem'])
+    problem = Problem.objects(problem_id=g.data['problem']).first()
     
     tmpfile = f'Submit/tmp{usr.qq}_{datetime.datetime.now().timestamp()}.{file_extension[g.data["lang"]]}' 
 
