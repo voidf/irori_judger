@@ -57,6 +57,7 @@ class Problem(Document):
     sp_outputs_lang = StringField()
     interactor = ListField(StringField(), default=[]) # 交互题？
     interactor_lang = StringField()
+    std = StringField() # 标程
 
     def get_json(self) -> dict:
         return {
@@ -65,7 +66,9 @@ class Problem(Document):
             'description': self.description,
             'pdf': self.pdf,
             'time_limit': self.time_limit,
-            'memory_limit': self.memory_limit
+            'memory_limit': self.memory_limit,
+            'sample_inputs': self.time_limit,
+            'sample_outputs': self.time_limit,
         }
 
 class User(Document): #标井号的不能给用户看
@@ -209,6 +212,21 @@ def container_init(exe):
     copy_to(exe,"sbsb:/sandbox/")
     return container
 
+def tar_to_bytes(bits) -> bytes:
+    """把get_archieve那个生成器的tar的bits弄成正常bytes拿出来"""
+    ttar = next(bits)
+    tmptarfn = 'tmptar.tar'
+    with open(tmptarfn,'wb') as f:
+        f.write(ttar)
+    y = tarfile.open(tmptarfn)
+    y.extractall(path='Tar/')
+    na = 'Tar/' + y.getmembers()[0].name
+    with open(na,'rb') as tmp:
+        ret = tmp.read()
+    os.remove(na)
+    os.remove(tmptarfn)
+    return ret
+
 def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
     """沙箱運行用戶可執行文件，返回文件二進制"""
     realexe = executable.split()[0]
@@ -221,32 +239,32 @@ def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
         # os.system(f'docker cp {i} sbsb:/usr/sbin/')
     out = []
     for p,i in enumerate(problem.inputs):
-        out.append(sandbox_run(
+        sandboxmono = sandbox_run(
             container,
             executable,
             i
-        ))
-        ttar = list(out[-1]['out']['bits'])[0]
-        tmptarfn = 'tmptar.tar'
-        with open(tmptarfn,'wb') as f:
-            f.write(ttar)
-        print(ttar)
-        y=tarfile.open(tmptarfn)
-        
-        y.extractall(path='Tar/')
+        )
         # os.system(f'docker exec sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
         # out[-1]['out']['bits'] = list(out[-1]['out']['bits'])
         # print(out[-1])
-
-        out[-1]['verdict'] = checker(problem,tmp.read(),p)
-        print(out[-1])
-        # os.system(f'docker cp sbsb:')
+        verdict = checker(problem,tar_to_bytes(sandboxmono['out']['bits']),p)
+        print(verdict)
+        out.append([
+            verdict,
+            tar_to_bytes(sandboxmono['res']['bits']).decode('utf-8'),
+            tar_to_bytes(sandboxmono['err']['bits']).decode('utf-8')
+        ])
     return out
 
 def checker(problem,participant_ans,itr):
-    out = participant_ans.strip().split()
-    if len(problem.outputs)<itr:
-        ans = open(problem.outputs[itr],'rb').read().strip().split()
+    print(participant_ans)
+    out = participant_ans.strip().split(b'\r\n')
+    print(itr,len(problem.outputs))
+    if len(problem.outputs)>itr:
+        
+        ans = open(problem.outputs[itr],'rb').read().strip().split(b'\r\n')
+        print(out)
+        print(ans)
         if len(ans) != len(out):
             return '''[Presentation Error] Length of participant's answer and jury's answer are not equal even after strip().'''
         for p,i,j in zip(range(len(ans)),ans,out):
@@ -390,8 +408,8 @@ def submit():
         executable=exe,
         problem=problem
     )
-    asyncio.ensure_future(rmTmpFile(exe))
-    
+    os.remove(exe)
+    print(res)
     return trueReturn({'result': res})
 
 @app.route('/problem/upload', methods=['POST'])

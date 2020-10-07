@@ -200,9 +200,9 @@ int main(int argc, char **argv)
         }
 
 #ifdef LOG
-        char inpwd[300];
-        char outpwd[300];
-        char errpwd[300];
+        // char inpwd[300];
+        // char outpwd[300];
+        // char errpwd[300];
         
         
         // file_stdin = pwd;
@@ -221,27 +221,27 @@ int main(int argc, char **argv)
 
         setuid(SANDBOX_UID);
         setgid(SANDBOX_GID);
-        realpath(file_stdin,inpwd);
+        // realpath(file_stdin,inpwd);
         
-        file_stdin = inpwd;
-        realpath(file_stdout,outpwd);
-        file_stdout = outpwd;
-        realpath(file_stderr,errpwd);
-        file_stderr = errpwd;
-        puts(file_stdin);
+        // file_stdin = inpwd;
+        // realpath(file_stdout,outpwd);
+        // file_stdout = outpwd;
+        // realpath(file_stderr,errpwd);
+        // file_stderr = errpwd;
+        // puts(file_stdin);
         if (strlen(file_stdin)){
-            puts("INIF1");
+            // puts("INIF1");
             freopen(file_stdin, "r", stdin);}
         else
             freopen("/dev/null", "r", stdin);
-        puts(file_stdout);
-        puts("CONVERTED STDIN");
+        // puts(file_stdout);
+        // puts("CONVERTED STDIN");
         if (strlen(file_stdout)){
             puts("INIF2");
             freopen(file_stdout, "w", stdout);}
         else
             freopen("/dev/null", "w", stdout);
-        puts("CONVERTED STDOUT");
+        // puts("CONVERTED STDOUT");
         if (strlen(file_stderr))
             freopen(file_stderr, "w", stderr);
         else
@@ -249,7 +249,7 @@ int main(int argc, char **argv)
 
         execlp(program, program, extargs, NULL);
 
-        puts("DONE");
+        // puts("DONE");
     }
 
     return 0;
