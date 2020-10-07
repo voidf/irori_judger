@@ -20,6 +20,7 @@ import GLOBAL
 import docker
 import tarfile
 import asyncio
+import io
 from flask import current_app as flaskapp
 
 from typing import List, Optional, Union
@@ -225,9 +226,19 @@ def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
             executable,
             i
         ))
-        # os.system(f'docker exec sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
+        ttar = list(out[-1]['out']['bits'])[0]
+        tmptarfn = 'tmptar.tar'
+        with open(tmptarfn,'wb') as f:
+            f.write(ttar)
+        print(ttar)
+        y=tarfile.open(tmptarfn)
         
-        out[-1]['verdict'] = checker(problem,out[-1]['out'],p)
+        y.extractall(path='Tar/')
+        # os.system(f'docker exec sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
+        # out[-1]['out']['bits'] = list(out[-1]['out']['bits'])
+        # print(out[-1])
+
+        out[-1]['verdict'] = checker(problem,tmp.read(),p)
         print(out[-1])
         # os.system(f'docker cp sbsb:')
     return out
