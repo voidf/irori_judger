@@ -228,7 +228,7 @@ def tar_to_bytes(bits) -> bytes:
     return ret
 
 def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
-    """沙箱運行用戶可執行文件，返回文件二進制"""
+    """沙箱運行用戶可執行文件，返回评测状态verdict，结果res，错误err三元组的列表"""
     realexe = executable.split()[0]
     container = container_init(realexe)    
     # os.system('docker run -dit --network none --name sbsb sandbox:sb')
@@ -247,12 +247,22 @@ def judge_mainwork(executable:str,problem:Problem) -> List[bytes]:
         # os.system(f'docker exec sb.elf {executable} {i} {output_files[p]} {error_files[p]} {time_limit[p]} {time_limit_reverse[p]} {memory_limit[p]} {memory_limit_reverse[p]} {large_stack[p]} {output_limit[p]} {process_limit[p]} {result_files[p]} {extargs}')
         # out[-1]['out']['bits'] = list(out[-1]['out']['bits'])
         # print(out[-1])
-        verdict = checker(problem,tar_to_bytes(sandboxmono['out']['bits']),p)
+        res = tar_to_bytes(sandboxmono['res']['bits']).decode('utf-8')
+        print(res)
+        err = tar_to_bytes(sandboxmono['err']['bits']).decode('utf-8')
+        print(err)
+
+        if "Exited Normally" in res:
+            verdict = checker(problem,tar_to_bytes(sandboxmono['out']['bits']),p)
+        else:
+            mono = res.split('\n')
+            verdict = f'[{mono[0]}] {mono[1]}'
+        
         print(verdict)
         out.append([
             verdict,
-            tar_to_bytes(sandboxmono['res']['bits']).decode('utf-8'),
-            tar_to_bytes(sandboxmono['err']['bits']).decode('utf-8')
+            res,
+            err
         ])
     return out
 
@@ -409,8 +419,34 @@ def submit():
         problem=problem
     )
     os.remove(exe)
+    verdict = []
+    runtime = []
+    memory = []
+
+    for i in res:
+        verdict.append(re.search('''\[(.*?)\]''',i[0]).group(1))
+        t,m = i[1].split('\n')[-3:-1]
+        print(t,m)
+        runtime.append(t)
+        memory.append(m)
+    
     print(res)
-    return trueReturn({'result': res})
+    s = Submit(
+        problem=problem,
+        submit_id=len(Submit.objects()),
+        score=int(100*verdict.count('Accept')/len(verdict)),
+        verdict=verdict,
+        runtime=runtime,
+        memory=memory,
+        plain=g.data['file'],
+        share=g.data.get('share',True),
+        time=datetime.datetime.now(),
+        user=usr
+    ).save()
+    return trueReturn({
+        'full': res,
+        'result': s.get_json()
+    })
 
 @app.route('/problem/upload', methods=['POST'])
 @handle_error
@@ -468,6 +504,13 @@ def problem_upload():
 @verify_params(params=['problem_id', 'title', 'description', 'time_limit', 'memory_limit'])
 def problem_import(): return trueReturn({'problem': Problem(**g.data).save().get_json()})
 
+@app.route('/problem/info', methods=['POST'])
+@handle_error
+@verify_params(params=['problem_id'])
+def problem_info(): 
+    return trueReturn({
+        'problem': Problem.objects(problem_id=g.data['problem_id']).first().get_json()
+    })
 
 
 if __name__ == '__main__':
