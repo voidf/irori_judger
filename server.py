@@ -161,21 +161,21 @@ async def rmTmpFile(fi:str):
 def randstr(length):
     return ''.join([random.choice(string.ascii_letters) for i in range(length)])
 
-def compiler(lang, plain_path, O2flag=False) -> str:
+def compiler(lang, plain_path) -> str:
     """編譯用戶文件，返回值注意需要解包"""
     if lang == 'python3':
         return f'python3 {plain_path}'
+    elif lang == 'g++O2':
+        os.system(f'g++ -x c++ {plain_path} -static -O2 -o {plain_path}.elf')
+        return f'{plain_path}.elf'
     elif lang == 'g++':
-        if O2flag:
-            os.system(f'g++ -x c++ {plain_path} -static -O2 -o {plain_path}.elf')
-        else:
-            os.system(f'g++ -x c++ {plain_path} -static -o {plain_path}.elf')
+        os.system(f'g++ -x c++ {plain_path} -static -o {plain_path}.elf')
+        return f'{plain_path}.elf'
+    elif lang == 'gccO2':
+        os.system(f'gcc -x c {plain_path} -static -O2 -o {plain_path}.elf')
         return f'{plain_path}.elf'
     elif lang == 'gcc':
-        if O2flag:
-            os.system(f'gcc -x c {plain_path} -static -O2 -o {plain_path}.elf')
-        else:
-            os.system(f'gcc -x c {plain_path} -static -o {plain_path}.elf')
+        os.system(f'gcc -x c {plain_path} -static -o {plain_path}.elf')
         return f'{plain_path}.elf'
     else:
         return ''
@@ -394,7 +394,9 @@ def before_request():
 
 
 file_extension = {
+    'g++O2':'cpp',
     'g++':'cpp',
+    'gccO2':'c',
     'gcc':'c',
     'python3':'py'
 }
@@ -412,7 +414,7 @@ def submit():
     with open(tmpfile, 'w', encoding='utf-8') as f:
         f.write(g.data['file'])
 
-    exe = compiler(g.data['lang'], tmpfile, g.data.get('O2', False))
+    exe = compiler(g.data['lang'], tmpfile)
     print(exe)
     res = judge_mainwork(
         executable=exe,
