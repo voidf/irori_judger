@@ -67,8 +67,8 @@ class Problem(Document):
             'pdf': self.pdf,
             'time_limit': self.time_limit,
             'memory_limit': self.memory_limit,
-            'sample_inputs': self.time_limit,
-            'sample_outputs': self.time_limit,
+            'sample_inputs': self.sample_inputs,
+            'sample_outputs': self.sample_outputs,
         }
 
 class User(Document): #标井号的不能给用户看
