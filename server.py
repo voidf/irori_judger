@@ -433,10 +433,12 @@ def submit():
         memory.append(m)
     
     print(res)
+    print(verdict.count('Accepted'))
+    print(len(verdict))
     s = Submit(
         problem=problem,
         submit_id=len(Submit.objects()),
-        score=int(100*verdict.count('Accept')/len(verdict)),
+        score=int(100*verdict.count('Accepted')/len(verdict)),
         verdict=verdict,
         runtime=runtime,
         memory=memory,
