@@ -23,6 +23,9 @@
 * [ ] 批量导入（受信用户）
 * [ ] 单条编辑、数据、spj导入（非受信用户需要限制）
 * [ ] 标程预导入、在线数据生成（受信用户）
+* [ ] 自动处理数据crlf
+* [ ] 查看错误原因，或testlib那种错误提示（wrong answer expected '1', found '0'）
+* [ ] 代码比较（codeforces那种类似git的Previous Submission和Current Submission的Compare）
 
 ### 比赛系统
 
@@ -37,6 +40,14 @@
 * [ ] 发气球界面
 * [ ] 自测接口
 * [ ] 封榜、管理员手动解封
+
+## Polygon出题系统
+
+* [ ] 题目导入导出
+* [ ] Validator
+* [ ] 压力测试、TLE/WA测试
+* [ ] issue
+* [ ] 版本管理
 
 ## 数据库
 
