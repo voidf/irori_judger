@@ -4,7 +4,7 @@
 
 * [ ] docker中运行，能够自我还原
 * [ ] 分布式部署
-* [ ] 支持交互题（checker override）（testlib）
+* [ ] 支持交互题（checker grader）（testlib）
 * [ ] 判活、可靠性保证
 * [ ] 安全性保证
 * [ ] 编译环境配置与更新容易
@@ -37,6 +37,7 @@
 * [ ] 简易查重
 * [ ] Clarification
 * [ ] IOI、ACM、CF赛制支持
+* [ ] Hack功能
 * [ ] 发气球界面
 * [ ] 自测接口
 * [ ] 封榜、管理员手动解封
