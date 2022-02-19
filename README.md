@@ -1,13 +1,19 @@
 # 大饼
 
-## 评测机
+## 评测机（直接使用dmoj的）
 
-* [ ] docker中运行，能够自我还原
-* [ ] 分布式部署
-* [ ] 支持交互题（checker grader）（testlib）
-* [ ] 判活、可靠性保证
-* [ ] 安全性保证
-* [ ] 编译环境配置与更新容易
+* [x] docker中运行，能够自我还原
+* [x] 分布式部署
+* [x] 支持交互题（checker grader）（testlib）
+* [x] 判活、可靠性保证
+* [x] 安全性保证
+* [x] 编译环境配置与更新容易
+
+svr.py是起步阶段的测试服务器，可以连接评测机
+
+配置步骤参考https://docs.dmoj.ca/#/judge/setting_up_a_judge
+
+也可以参考rundocker.txt
 
 ## 后端服务器
 

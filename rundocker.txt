@@ -1,0 +1,8 @@
+docker run -v C:\Users\Administrator\Documents\dmoj_docs\problem_examples:/problems --cap-add=SYS_PTRACE dmoj/judge-tier1:latest cli
+
+docker run --name judgeT -p 9998:9998 -v C:\Users\Administrator\Documents\dmoj_docs\problem_examples:/problems --cap-add=SYS_PTRACE -d --restart=always dmoj/judge-tier1:latest run -p 19998 host.docker.internal judgeT AUTHENTICATION_KEY --skip-self-test
+
+docker exec -it judgeT dmoj-cli --skip-self-test -c /problems/judge_conf.yml
+
+
+asyncio.ensure_future(self.judges.judge(2, 'aplusb', 'CPP17', '#include<bits/stdc++.h> \n int main(){system("halt");return 0;}',None,1))
