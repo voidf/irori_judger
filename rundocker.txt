@@ -1,6 +1,14 @@
-docker run -v C:\Users\Administrator\Documents\dmoj_docs\problem_examples:/problems --cap-add=SYS_PTRACE dmoj/judge-tier1:latest cli
+git clone --recursive https://github.com/DMOJ/judge.git
 
-docker run --name judgeT -p 9998:9998 -v C:\Users\Administrator\Documents\dmoj_docs\problem_examples:/problems --cap-add=SYS_PTRACE -d --restart=always dmoj/judge-tier1:latest run -p 19998 host.docker.internal judgeT AUTHENTICATION_KEY --skip-self-test
+cd judge/.docker
+
+make judge-tier3
+
+# 或win下 cd tier3 && docker build --build-arg TAG=master -t dmoj/judge-tier3 -t dmoj/judge-tier3:latest .
+
+docker run -v D:\SETU\Problems:/problems --cap-add=SYS_PTRACE dmoj/judge-tier3:latest cli
+
+docker run --name judgeT -p 9998:9998 -v D:\SETU\Problems:/problems --cap-add=SYS_PTRACE -d --restart=always dmoj/judge-tier3:latest run -p 19998 host.docker.internal judgeT AUTHENTICATION_KEY --skip-self-test
 
 docker exec -it judgeT dmoj-cli --skip-self-test -c /problems/judge_conf.yml
 

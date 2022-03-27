@@ -1,5 +1,3 @@
-flask==1.0.2
-flask-cors==3.0.6
-flask-mongoengine==0.9.5
-flask_script
-docker
+llist
+netaddr
+aioconsole
