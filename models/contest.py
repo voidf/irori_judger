@@ -28,7 +28,7 @@ class Contest(Document):
         (SCOREBOARD_HIDDEN, 'Hidden permanently'),
     )
     # meta = {'allow_inheritance': True}
-    poster = EmbeddedDocumentField(Comment)
+    poster = ReferenceField(Comment, reverse_delete_rule=DO_NOTHING)
 
     id = StringField(primary_key=True)
     name = StringField()

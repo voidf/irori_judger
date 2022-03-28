@@ -98,14 +98,21 @@ class Problem(Document):
     # 题面数据什么的应该存文件里
     # desc = StringField() # markdown描述
 
+class LanguageLimit(Document):
+    problem = ReferenceField(Problem, reverse_delete_rule=CASCADE)
+    language = ReferenceField(Runtime, reverse_delete_rule=CASCADE)
+    time_limit = FloatField()
+    memory_limit = IntField()
+
+
 class ProblemDiscuss(Document, Reportable):
     """问题讨论区"""
-    poster = EmbeddedDocument(Comment)
+    poster = ReferenceField(Comment, reverse_delete_rule=CASCADE, primary_key=True)
     problem = ReferenceField(Problem, reverse_delete_rule=CASCADE)
 
 class ProblemSolution(Document, Reportable):
     """题解区"""
-    poster = EmbeddedDocument(Comment)
+    poster = ReferenceField(Comment, reverse_delete_rule=CASCADE, primary_key=True)
     problem = ReferenceField(Problem, reverse_delete_rule=CASCADE)
 
 

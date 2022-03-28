@@ -2,7 +2,7 @@ from mongoengine import *
 from mongoengine.document import Document
 from mongoengine.fields import *
 from models.mixin.reportable import Reportable
-
+from models.user import User
 class Comment(Document, Reportable):
     """树形评论"""
     meta = {'allow_inheritance': True}
@@ -11,5 +11,5 @@ class Comment(Document, Reportable):
     update_time = DateTimeField()
     text = StringField() # markdown内容
     allow_reply = BooleanField(default=True)
-    reply = ListField(ReferenceField(Comment, reverse_delete_rule=PULL)) # 回复
+    reply = ListField(ReferenceField('Comment', reverse_delete_rule=PULL)) # 回复
     likes = IntField(default=0) # 赞数

@@ -22,6 +22,9 @@ from netaddr import IPGlob, IPSet
 import asyncio
 import traceback
 
+# from models.submission import Submission
+from models import *
+
 
 def utf8text(maybe_bytes, errors='strict') -> Optional[str]:
     if maybe_bytes is None:
@@ -224,11 +227,12 @@ SubmissionData = namedtuple(
     'SubmissionData', 'time memory short_circuit pretests_only contest_no attempt_no user_id')
 
 
-# def _ensure_connection():
-#     try:
-#         db.connection.cursor().execute('SELECT 1').fetchall()
-#     except Exception:
-#         db.connection.close()
+def _ensure_connection():
+    pass
+    # try:
+    #     db.connection.cursor().execute('SELECT 1').fetchall()
+    # except Exception:
+    #     db.connection.close()
 
 
 PriorityMarker = namedtuple('PriorityMarker', 'priority')
@@ -528,15 +532,35 @@ class JudgeHandler(ZlibPacketHandler):
 
     def get_related_submission_data(self, submission) -> SubmissionData:
         # TODO
-        """
+        
         _ensure_connection()
 
         try:
-            pid, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = (
-                Submission.objects.filter(id=submission)
-                          .values_list('problem__id', 'problem__time_limit', 'problem__memory_limit',
-                                       'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__id',
-                                       'contest__participation__virtual', 'contest__participation__id')).get()
+            s = ContestSubmission.objects(pk=submission).first()
+            if s:
+                pa = s.participation
+                is_pretested = s.is_pretest
+                part_virtual = pa.virtual
+                part_id = pa.pk
+            else:
+                is_pretested = False
+                part_virtual = None
+                part_id = None
+                s = Submission.objects.get(pk=submission)
+
+            p = s.problem
+
+            pid, time, memory, short_circuit = p.pk, p.time_limit, p.memory_limit, p.short_circuit
+            lid = s.language.pk
+            sub_date = s.date
+            uid = s.user.pk
+            
+            # pid, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = (
+            #     Submission.objects.filter(id=submission)
+            #               .values_list('problem__id', 'problem__time_limit', 'problem__memory_limit',
+            #                            'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__id',
+            #                            'contest__participation__virtual', 'contest__participation__id')).get()
+
         except Submission.DoesNotExist:
             logger.error('Submission vanished: %s', submission)
             json_log.error(self._make_json_log(
@@ -545,7 +569,7 @@ class JudgeHandler(ZlibPacketHandler):
             ))
             return
 
-        attempt_no = Submission.objects.filter(problem__id=pid, contest__participation__id=part_id, user__id=uid,
+        attempt_no = ContestSubmission.objects(problem__id=pid, participation__id=part_id, user__id=uid,
                                                date__lt=sub_date).exclude(status__in=('CE', 'IE')).count() + 1
 
         try:
@@ -563,16 +587,16 @@ class JudgeHandler(ZlibPacketHandler):
             attempt_no=attempt_no,
             user_id=uid,
         )
-        """
-        return SubmissionData(
-            time=1,
-            memory=512,
-            short_circuit=False,
-            pretests_only=False,
-            contest_no=1,
-            attempt_no=1,
-            user_id=1,
-        )
+        
+        # return SubmissionData(
+        #     time=1,
+        #     memory=512,
+        #     short_circuit=False,
+        #     pretests_only=False,
+        #     contest_no=1,
+        #     attempt_no=1,
+        #     user_id=1,
+        # )
 
     def disconnect(self, force=False):
         if force:
