@@ -63,8 +63,8 @@ class Problem(Document):
         (SubmissionSourceAccess.SOLVED, 'Visible if problem solved'),
         (SubmissionSourceAccess.ONLY_OWN, 'Only own submissions'),
     )
-    id = SequenceField(default=1000, primary_key=True)
-    name = StringField() # 标题
+    # id = SequenceField(default=1000, primary_key=True)
+    name = StringField(primary_key=True) # 标题
 
     # 管理属性
     authors = ListField(
