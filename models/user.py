@@ -1,6 +1,8 @@
 from mongoengine import *
 from mongoengine.document import Document
 from mongoengine.fields import *
+import hashlib
+from config import secret
 
 AUTHORITY_LEVEL = (
     (0, 'admin'),
@@ -10,6 +12,8 @@ AUTHORITY_LEVEL = (
     (4, 'guest'),
 )
 
+def encrypt(s: str) -> str:
+    return hashlib.sha256((s + secret.auth_salt).encode('utf-8')).hexdigest()
 
 # class Role(Document):
 #     """OJ级别权限组"""
@@ -44,4 +48,11 @@ class User(Document):
     tried = ListField(ReferenceField('Problem'))
 
     api_token = StringField() # 注意维护唯一性
+
+    def pw_chk(self, password: str) -> bool:
+        return self.password == encrypt(password)
+
+    def pw_set(self, password: str) -> "User":
+        self.password = encrypt(password)
+        return self
 

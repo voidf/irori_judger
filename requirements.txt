@@ -1,3 +1,5 @@
 llist
 netaddr
-aioconsole
+# aioconsole
+prompt_toolkit
+pyyaml

@@ -2,3 +2,5 @@
 *.pyc
 app/api/v1/__pycache__/
 .env
+config.yml
+secret.yml

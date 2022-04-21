@@ -1,15 +1,16 @@
+from fastapi import FastAPI
 from loguru import logger
 import tracemalloc
+import uvicorn
 tracemalloc.start()
 # from judge.models import Judge, Language, LanguageLimit, Problem, RuntimeVersion, Submission, SubmissionTestCase
 # from judge.caching import finished_submission
 # from judge.bridge.base_handler import ZlibPacketHandler, proxy_list
 # from judge import event_poster as event
-from operator import itemgetter
 import time
 import json
 import hmac
-import logging
+import config
 import zlib
 from typing import *
 import asyncio
@@ -18,43 +19,98 @@ import traceback
 # from models.submission import Submission
 from models import *
 from network import *
+from models.user import AUTHORITY_LEVEL
+
 
 
 judge_list = JudgeList()
 
+@logger.catch
+async def handler_wrapper(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    j = JudgeHandler(reader, writer, judge_list)
+    try:
+        await j.handle()
+    except:
+        j.on_disconnect()
+        raise
 
+app = FastAPI()
+from routers import master_router
+app.include_router(master_router)
+
+
+@app.on_event('startup')
+async def site_startup():
+    pass
+
+import sys
 async def cmdloop():
-    import aioconsole
+
+    site_server = uvicorn.Server(config=config.static.site_server_config)
+
+    judger_monitor = await asyncio.start_server(
+        handler_wrapper,
+        **config.static.judger_monitor_config
+    )
+
+    async def run_svr():
+        async with judger_monitor:
+            addr = judger_monitor.sockets[0].getsockname()
+            logger.info(f'judger monitor serving on {addr}')
+            await judger_monitor.serve_forever()
+        logger.info('judger server closed')
+
+    asyncio.create_task(run_svr())
+
+
+    asyncio.create_task(site_server.serve())
+
+    from prompt_toolkit import PromptSession
+
+    console = PromptSession()
+
+    if not User.objects(authority_level=AUTHORITY_LEVEL[0][0]):
+        _hd = await console.prompt_async('default admin handle:')
+        while not _hd:
+            _hd = await console.prompt_async('default admin handle:')
+        _pw = await console.prompt_async('default admin password:')
+        while not _pw:
+            _pw = await console.prompt_async('default admin password:')
+        _admin = User(pk=_hd, authority_level=AUTHORITY_LEVEL[0][0])
+        _admin.pw_set(_pw)
+        _admin.save()
+        logger.info('default admin saved.')
+        del _hd, _pw, _admin
+
+
+    console.message = 'irori console:#'
+
     while 1:
-        cmd: str = await aioconsole.ainput()
+        try:
+            cmd: str = await console.prompt_async()
+        except EOFError:
+            logger.info('type [q] to exit.')
+            continue
         if cmd[:1] == '!':
             await judge_list.judge(int(cmd[1:]), 'ds3', 'CPP20', 'int main(){return 0;}',None,1)
+        elif cmd == 'q':
+            await site_server.shutdown()
+            judger_monitor.close()
+            await judger_monitor.wait_closed()
+            return
         else:
             try:
                 exec(cmd)
             except:
                 traceback.print_exc()
 
-if __name__ == "__main__":
-    @logger.catch
-    async def handler_wrapper(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        j = JudgeHandler(reader, writer, judge_list)
-        try:
-            await j.handle()
-        except:
-            j.on_disconnect()
-            raise
-    
-    async def entrance():
+# loop: asyncio.BaseEventLoop = None
 
-        asyncio.ensure_future(cmdloop())
-        svr = await asyncio.start_server(
-            handler_wrapper,
-            '0.0.0.0',
-            19998
-        )
-        addr = svr.sockets[0].getsockname()
-        logger.info(f'Serving on {addr}')
-        async with svr:
-            await svr.serve_forever()
-    asyncio.run(entrance(), debug=True)
+if __name__ == "__main__":
+    # global loop
+    asyncio.run(cmdloop())
+    # _config.setup_event_loop()
+    # loop = asyncio.get_event_loop()
+    # loop.run_until_complete(site_server.serve())
+    # uvicorn.run(app)
+    # asyncio.run(entrance(), debug=True)
