@@ -20,6 +20,7 @@ class static: # 可公开的首选项配置
         reload=True,
         workers=4,
     )
+    oss_host = 'http://127.0.0.1'
 
 with open('secret.yml', 'r') as f:
     secret = JsonDict(yaml.safe_load(f)) # 包含敏感数据的配置

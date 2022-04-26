@@ -6,6 +6,8 @@ class Judger(Document):
     评测机的数据，用于认证评测机，查询在线状态等
 
     注意名字是主键，不能重名
+
+    多worker环境塞内存不是好文明，所以还是把在线信息塞数据库
     """
     name = StringField(primary_key=True)
     created = DateTimeField()

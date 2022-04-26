@@ -96,7 +96,14 @@ class Problem(Document):
 
 
     # 题面数据什么的应该存文件里
-    # desc = StringField() # markdown描述
+    desc = StringField() # 描述
+    title = StringField()
+    DESC_TYPE = (
+        ('M', 'Markdown'),
+        ('L', 'LaTeX'),
+        ('H', 'html'),
+    )
+    desc_type = StringField(choices=DESC_TYPE)
 
 class LanguageLimit(Document):
     problem = ReferenceField(Problem, reverse_delete_rule=CASCADE)

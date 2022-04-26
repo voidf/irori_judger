@@ -1,5 +1,6 @@
 llist
 netaddr
-# aioconsole
 prompt_toolkit
 pyyaml
+# 猜解文件类型，win下需要pip install python-magic-bin, debian下sudo apt-get install libmagic1
+python-magic
