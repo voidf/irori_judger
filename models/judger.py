@@ -1,5 +1,6 @@
 from mongoengine.document import Document
 from mongoengine.fields import *
+from utils.password import encrypt
 
 class Judger(Document):
     """
@@ -24,6 +25,9 @@ class Judger(Document):
     
     def __str__(self):
         return self.name
+
+    def verify(self, key):
+        return encrypt(key) == self.auth_key
 """ TODO
     def disconnect(self, force=False):
         disconnect_judge(self, force=force)

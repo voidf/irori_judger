@@ -150,3 +150,5 @@ class JudgeList(object):
                 self.priority[priority],
             )
             logger.info(f'Queued submission: {id}')
+
+judge_list: JudgeList = JudgeList()

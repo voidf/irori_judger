@@ -18,12 +18,9 @@ import traceback
 
 # from models.submission import Submission
 from models import *
-from network import *
+from judge import *
 from models.user import AUTHORITY_LEVEL
 
-
-
-judge_list = JudgeList()
 
 @logger.catch
 async def handler_wrapper(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -34,9 +31,19 @@ async def handler_wrapper(reader: asyncio.StreamReader, writer: asyncio.StreamWr
         j.on_disconnect()
         raise
 
-app = FastAPI()
-from routers import master_router
-app.include_router(master_router)
+def preload() -> FastAPI:
+    """TODO: 多worker fork出来前先进行一些通用东西的初始化
+
+    tier2: 后期考虑多worker的时候重写一下，不过应该也不会有需要用多worker那么大并发量
+    """
+    app = FastAPI()
+    from routers import master_router
+    app.include_router(master_router)
+    return app
+
+
+
+app = preload()
 
 
 @app.on_event('startup')
@@ -53,15 +60,14 @@ async def cmdloop():
         **config.static.judger_monitor_config
     )
 
-    async def run_svr():
+    async def run_judge():
         async with judger_monitor:
             addr = judger_monitor.sockets[0].getsockname()
             logger.info(f'judger monitor serving on {addr}')
             await judger_monitor.serve_forever()
         logger.info('judger server closed')
 
-    asyncio.create_task(run_svr())
-
+    asyncio.create_task(run_judge())
 
     asyncio.create_task(site_server.serve())
 

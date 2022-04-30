@@ -8,10 +8,11 @@ from mongoengine.document import Document
 from mongoengine.fields import *
 from models.user import User
 from models.mixin.chkable import Chkable
+from mongoengine.queryset import *
 
 class Report(Document, Chkable):
     resource = GenericReferenceField(primary_key=True)
-    reporters = ListField(ReferenceField(User, reverse_delete_rule=PULL))
+    reporters = ListField(LazyReferenceField(User, reverse_delete_rule=PULL))
 
 
 class Reportable():

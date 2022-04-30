@@ -1,9 +1,12 @@
-from turtle import update
+from mongoengine.queryset import CASCADE
 from mongoengine import *
 from mongoengine.document import Document
 from mongoengine.fields import *
+from models.mixin.expandable import Expandable
+from models.mixin.chkable import Chkable
 
-class Runtime(Document):
+
+class Runtime(Document, Expandable, Chkable):
     """OJ支持的提交语言"""
     key = StringField(primary_key=True) # 与评测机语言id保持一致
     
@@ -16,4 +19,18 @@ class Runtime(Document):
     
     extension = StringField() # 文件智能提交用扩展名识别，注意唯一性
 
+class RuntimeVersion(Document, Expandable, Chkable):
+    """评测机上的具体运行时版本，没有则创建一个"""
+    language = ReferenceField(Runtime, reverse_delete_rule=CASCADE)
+    name = StringField(primary_key=True)
+    version = StringField()
+
+    @classmethod
+    def runtime_chk(cls, lang: str, version: str):
+        r = cls.chk(lang+'/'+version)
+        r.language = Runtime.chk(lang)
+        r.version = version
+        return r.save()
     
+    def get_readable(self):
+        return self.language.name + ' ' + self.version

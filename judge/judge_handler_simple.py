@@ -1,10 +1,11 @@
+from config import static
 import datetime
 import traceback
 from models.runtime import Runtime
-from network.misc import *
-from network.zlib_packet_handler import ZlibPacketHandler
+from judge.misc import *
+from judge.zlib_packet_handler import ZlibPacketHandler
 import asyncio
-from network.judge_list import JudgeList
+from judge.judge_list import JudgeList
 from loguru import logger
 from collections import deque
 import json
@@ -14,6 +15,11 @@ from models.submission import Submission
 from models.contest import ContestSubmission
 from models.problem import LanguageLimit
 from collections import namedtuple
+
+from utils.broadcast import broadcaster
+
+async def publish_dict(id, dict_msg):
+    await broadcaster.publish(f'sub_{id}', json.dumps(dict_msg))
 
 SubmissionData = namedtuple(
     'SubmissionData', 'time memory short_circuit pretests_only contest_no attempt_no user_id')
@@ -26,7 +32,8 @@ def _ensure_connection():
     # except Exception:
     #     db.connection.close()
 
-class JudgeHandler(ZlibPacketHandler):
+class JudgeHandlerSimple(ZlibPacketHandler):
+    """不写库，只管评测"""
     # proxies = proxy_list(settings.BRIDGED_JUDGE_PROXIES or [])
     proxies = proxy_list([])
 
@@ -43,7 +50,7 @@ class JudgeHandler(ZlibPacketHandler):
             'compile-message': self.on_compile_message,
             'batch-begin': self.on_batch_begin,
             'batch-end': self.on_batch_end,
-            # 'test-case-status': self.on_test_case,
+            'test-case-status': self.on_test_case,
             'internal-error': self.on_internal_error,
             'submission-terminated': self.on_submission_terminated,
             'submission-acknowledged': self.on_submission_acknowledged,
@@ -102,63 +109,16 @@ class JudgeHandler(ZlibPacketHandler):
             json_log.error(self._make_json_log(
                 sub=self._working, action='close', info='IE due to shutdown on grading'))
 
-    def _authenticate(self, id, key):
-        # TODO
-        # try:
-        #     judge = Judge.objects.get(name=id, is_blocked=False)
-        # except Judge.DoesNotExist:
-        #     result = False
-        # else:
-        # result = hmac.compare_digest(judge.auth_key, key)
-        result = True
-
-        if not result:
-            json_log.warning(self._make_json_log(
-                action='auth', judge=id, info='judge failed authentication'))
-        return result
-
     def _connected(self):
-        # TODO
-        # judge = self.judge = Judge.objects.get(name=self.name)
-        # judge.start_time = timezone.now()
-        # judge.online = True
-        # judge.problems.set(Problem.objects.filter(
-        #     code__in=list(self.problems.keys())))
-        # judge.runtimes.set(Language.objects.filter(
-        #     key__in=list(self.executors.keys())))
-
-        # Delete now in case we somehow crashed and left some over from the last connection
-        # RuntimeVersion.objects.filter(judge=judge).delete()
-        # versions = []
-        # for lang in judge.runtimes.all():
-        #     versions += [
-        #         RuntimeVersion(language=lang, name=name, version='.'.join(
-        #             map(str, version)), priority=idx, judge=judge)
-        #         for idx, (name, version) in enumerate(self.executors[lang.key])
-        #     ]
-        # RuntimeVersion.objects.bulk_create(versions)
-        # judge.last_ip = self.client_address[0]
-        # judge.save()
         self.judge_address = f'[{self.client_address[0]}]:{self.client_address[1]}'
         json_log.info(self._make_json_log(action='auth', info='judge successfully authenticated',
                                           executors=list(self.executors.keys())))
 
     def _disconnected(self):
         pass
-        # TODO
-        # Judge.objects.filter(id=self.judge.id).update(online=False)
-        # RuntimeVersion.objects.filter(judge=self.judge).delete()
 
     def _update_ping(self):
         pass
-        # TODO
-        # try:
-            # Judge.objects.filter(name=self.name).update(
-                # ping=self.latency, load=self.load)
-        # except Exception as e:
-            # What can I do? I don't want to tie this to MySQL.
-            # if e.__class__.__name__ == 'OperationalError' and e.__module__ == '_mysql_exceptions' and e.args[0] == 2006:
-                # db.connection.close()
 
     async def send(self, data):
         await super().send(json.dumps(data, separators=(',', ':')))
@@ -169,26 +129,19 @@ class JudgeHandler(ZlibPacketHandler):
             self.close()
             return
 
-        if not self._authenticate(packet['id'], packet['key']):
-            logger.warning(f'Authentication failure: {self.client_address}')
-            self.close()
-            return
-
         self.timeout = 60
         self._problems = packet['problems']
         self.problems = dict(self._problems)
         self.executors = packet['executors']
-        for k, v in enumerate(self.executors):
-            if not Runtime.objects(pk=k):
-                Runtime(pk=v).save()
-        
+        # for k, v in enumerate(self.executors):
+        #     if not Runtime.objects(pk=k):
+        #         Runtime(pk=v).save()
                 
         self.name = packet['id']
 
         await self.send({'name': 'handshake-success'})
         logger.info(f'Judge authenticated: {self.client_address} ({packet["id"]})')
         self.judges.register(self)
-        # threading.Thread(target=self._ping_thread).start()
         asyncio.ensure_future(self._ping_thread())
         self._connected()
 
@@ -199,72 +152,27 @@ class JudgeHandler(ZlibPacketHandler):
     def working(self):
         return bool(self._working)
 
-    def get_related_submission_data(self, submission) -> SubmissionData:
-        # TODO
-        
-        # _ensure_connection()
-
-        # try:
-        #     s = ContestSubmission.objects(pk=submission).first()
-        #     if s:
-        #         pa = s.participation
-        #         is_pretested = s.is_pretest
-        #         part_virtual = pa.virtual
-        #         part_id = pa.pk
-        #     else:
-        #         is_pretested = False
-        #         part_virtual = None
-        #         part_id = None
-        #         s = Submission.objects.get(pk=submission)
-
-        #     p = s.problem
-
-        #     pid, time, memory, short_circuit = p.pk, p.time_limit, p.memory_limit, p.short_circuit
-        #     lid = s.language.pk
-        #     sub_date = s.date
-        #     uid = s.user.pk
-            
-        #     # pid, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = (
-        #     #     Submission.objects.filter(id=submission)
-        #     #               .values_list('problem__id', 'problem__time_limit', 'problem__memory_limit',
-        #     #                            'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__id',
-        #     #                            'contest__participation__virtual', 'contest__participation__id')).get()
-
-        # except Submission.DoesNotExist:
-        #     logger.error('Submission vanished: %s', submission)
-        #     json_log.error(self._make_json_log(
-        #         sub=self._working, action='request',
-        #         info='submission vanished when fetching info',
-        #     ))
-        #     return
-
-        # attempt_no = ContestSubmission.objects(problem__id=pid, participation__id=part_id, user__id=uid,
-        #                                        date__lt=sub_date).exclude(status__in=('CE', 'IE')).count() + 1
-
-        # try:
-        #     time, memory = (LanguageLimit.objects.filter(problem__id=pid, language__id=lid)
-        #                     .values_list('time_limit', 'memory_limit').get())
-        # except LanguageLimit.DoesNotExist:
-        #     pass
-
-        # return SubmissionData(
-        #     time=time,
-        #     memory=memory,
-        #     short_circuit=short_circuit,
-        #     pretests_only=is_pretested,
-        #     contest_no=part_virtual,
-        #     attempt_no=attempt_no,
-        #     user_id=uid,
-        # )
+    def get_related_submission_data(
+        self, 
+        submission, 
+        time=3, 
+        memory=512 * 1024,
+        short_circuit=False,
+        pretests_only=False,
+        contest_no=1,
+        attempt_no=1,
+        user_id=1,
+        **kwargs
+    ) -> SubmissionData:
         
         return SubmissionData(
-            time=1,
-            memory=512 * 1024,
-            short_circuit=False,
-            pretests_only=False,
-            contest_no=1,
-            attempt_no=1,
-            user_id=1,
+            time=time,
+            memory=memory,
+            short_circuit=short_circuit,
+            pretests_only=pretests_only,
+            contest_no=contest_no,
+            attempt_no=attempt_no,
+            user_id=user_id,
         )
 
     def disconnect(self, force=False):
@@ -274,11 +182,10 @@ class JudgeHandler(ZlibPacketHandler):
         else:
             self.send({'name': 'disconnect'})
 
-    async def submit(self, id, problem, language, source):
+    async def submit(self, id, problem, language, source, **kwargs):
         """应该在外部先创建好了对应的Submission数据库文档后再调用"""
-        data = self.get_related_submission_data(id)
+        data = self.get_related_submission_data(id, **kwargs)
         self._working = id
-        # self._no_response_job = threading.Timer(20, self._kill_if_no_response)
         self._no_response_job = asyncio.ensure_future(self._kill_if_no_response())
         await self.send({
             'name': 'submission-request',
@@ -308,31 +215,18 @@ class JudgeHandler(ZlibPacketHandler):
 
     def malformed_packet(self, exception):
         logger.exception(f'Judge sent malformed packet: {self.name}')
-        super(JudgeHandler, self).malformed_packet(exception)
+        super(JudgeHandlerSimple, self).malformed_packet(exception)
 
-    def on_submission_processing(self, packet):
-        # TODO
+    async def on_submission_processing(self, packet):
         # _ensure_connection()
 
         id = packet['submission-id']
-        # if Submission.objects.filter(id=id).update(status='P', judged_on=self.judge):
-        #     event.post('sub_%s' % Submission.get_id_secret(
-        #         id), {'type': 'processing'})
-        #     self._post_update_submission(id, 'processing')
-        #     json_log.info(self._make_json_log(packet, action='processing'))
-        # else:
-        #     logger.warning('Unknown submission: %s', id)
-        #     json_log.error(self._make_json_log(
-        #         packet, action='processing', info='unknown submission'))
+        await publish_dict(id, {'type': 'processing'}) # dmoj这里有个提交id的hash，不知道去掉会怎么不好
+
 
     def on_submission_wrong_acknowledge(self, packet, expected, got):
         json_log.error(self._make_json_log(
             packet, action='processing', info='wrong-acknowledge', expected=expected))
-        # TODO
-        # Submission.objects.filter(id=expected).update(
-        #     status='IE', result='IE', error=None)
-        # Submission.objects.filter(id=got, status='QU').update(
-        #     status='IE', result='IE', error=None)
 
     async def on_submission_acknowledged(self, packet):
         if not packet.get('submission-id', None) == self._working:
@@ -344,7 +238,7 @@ class JudgeHandler(ZlibPacketHandler):
         if self._no_response_job:
             self._no_response_job.cancel()
             self._no_response_job = None
-        self.on_submission_processing(packet)
+        await self.on_submission_processing(packet)
 
     async def abort(self):
         await self.send({'name': 'terminate-submission'})
@@ -362,7 +256,7 @@ class JudgeHandler(ZlibPacketHandler):
                 if 'name' not in data:
                     raise ValueError
             except ValueError:
-                self.on_malformed(data)
+                await self.on_malformed(data)
             else:
                 handler = self.handlers.get(data['name'], self.on_malformed)
                 await handler(data)
@@ -378,9 +272,6 @@ class JudgeHandler(ZlibPacketHandler):
 
     def _submission_is_batch(self, id):
         pass
-        # TODO
-        # if not Submission.objects.filter(id=id).update(batch=True):
-            # logger.warning('Unknown submission: %s', id)
 
     async def on_supported_problems(self, packet):
         logger.info(f'{self.name}: Updated problem list')
@@ -388,47 +279,19 @@ class JudgeHandler(ZlibPacketHandler):
         self.problems = dict(self._problems)
         if not self.working:
             self.judges.update_problems(self)
-        # TODO
-        # self.judge.problems.set(Problem.objects.filter(
-            # code__in=list(self.problems.keys())))
         json_log.info(self._make_json_log(
             action='update-problems', count=len(self.problems)))
 
     async def on_grading_begin(self, packet):
-        logger.info(f'{self.name}: Grading has begun on: {packet["submission-id"]}')
+        id = packet["submission-id"]
+        logger.info(f'{self.name}: Grading has begun on: {id}')
         self.batch_id = None
-        """ TODO
-
-        if Submission.objects.filter(id=packet['submission-id']).update(
-                status='G', is_pretested=packet['pretested'], current_testcase=1,
-                batch=False, judged_date=timezone.now()):
-            SubmissionTestCase.objects.filter(
-                submission_id=packet['submission-id']).delete()
-            event.post('sub_%s' % Submission.get_id_secret(
-                packet['submission-id']), {'type': 'grading-begin'})
-            self._post_update_submission(
-                packet['submission-id'], 'grading-begin')
-            json_log.info(self._make_json_log(packet, action='grading-begin'))
-        else:
-            logger.warning('Unknown submission: %s', packet['submission-id'])
-            json_log.error(self._make_json_log(
-                packet, action='grading-begin', info='unknown submission'))
-        """
-    
+        await publish_dict(id, {'type': 'grading-begin'})
 
     async def on_grading_end(self, packet):
         logger.info(f'{self.name}: Grading has ended on: {packet["submission-id"]}')
         self._free_self(packet)
         self.batch_id = None
-
-        # TODO
-        # try:
-        #     submission = Submission.objects.get(id=packet['submission-id'])
-        # except Submission.DoesNotExist:
-        #     logger.warning('Unknown submission: %s', packet['submission-id'])
-        #     json_log.error(self._make_json_log(
-        #         packet, action='grading-end', info='unknown submission'))
-        #     return
 
         time = 0
         memory = 0
@@ -503,6 +366,15 @@ class JudgeHandler(ZlibPacketHandler):
         #     'total': float(problem.points),
         #     'result': submission.result,
         # })
+
+        await publish_dict(id, {
+            'type': 'grading-end',
+            'time': 0,
+            'memory': 0,
+            'points': 0,
+            'total': 0,
+            'result': status_codes[0],
+        })
         # if hasattr(submission, 'contest'):
         #     participation = submission.contest.participation
         #     event.post('contest_%d' %
@@ -510,15 +382,20 @@ class JudgeHandler(ZlibPacketHandler):
         # self._post_update_submission(submission.id, 'grading-end', done=True)
 
     async def on_compile_error(self, packet):
-        logger.info(f'{self.name}: Submission failed to compile: {packet["submission-id"]}')
+        id = packet["submission-id"]
+        logger.info(f'{self.name}: Submission failed to compile: {id}')
         self._free_self(packet)
+        await publish_dict(id, {
+            'type': 'compile-error',
+            'log': packet['log'],
+        })
         # TODO
 
         # if Submission.objects.filter(id=packet['submission-id']).update(status='CE', result='CE', error=packet['log']):
-        #     event.post('sub_%s' % Submission.get_id_secret(packet['submission-id']), {
-        #         'type': 'compile-error',
-        #         'log': packet['log'],
-        #     })
+            # event.post('sub_%s' % Submission.get_id_secret(packet['submission-id']), {
+                # 'type': 'compile-error',
+                # 'log': packet['log'],
+            # })
         #     self._post_update_submission(
         #         packet['submission-id'], 'compile-error', done=True)
         #     json_log.info(self._make_json_log(packet, action='compile-error', log=packet['log'],
@@ -530,7 +407,9 @@ class JudgeHandler(ZlibPacketHandler):
 
     async def on_compile_message(self, packet):
         logger.info(f'{self.name}: Submission generated compiler messages: {packet["submission-id"]}')
-
+        await publish_dict(
+            packet["submission-id"], {'type': 'compile-message'}
+        )
         # if Submission.objects.filter(id=packet['submission-id']).update(error=packet['log']):
         #     event.post('sub_%s' % Submission.get_id_secret(
         #         packet['submission-id']), {'type': 'compile-message'})
@@ -549,10 +428,9 @@ class JudgeHandler(ZlibPacketHandler):
         self._free_self(packet)
 
         id = packet['submission-id']
+        await publish_dict(id, {'type': 'internal-error'})
         # if Submission.objects.filter(id=id).update(status='IE', result='IE', error=packet['message']):
-        #     event.post('sub_%s' % Submission.get_id_secret(
-        #         id), {'type': 'internal-error'})
-        #     self._post_update_submission(id, 'internal-error', done=True)
+        self._post_update_submission(id, 'internal-error', done=True)
         #     json_log.info(self._make_json_log(packet, action='internal-error', message=packet['message'],
         #                                       finish=True, result='IE'))
         # else:
@@ -564,11 +442,9 @@ class JudgeHandler(ZlibPacketHandler):
         logger.info(f'{self.name}: Submission aborted: {packet["submission-id"]}')
         self._free_self(packet)
 
+        await publish_dict(packet['submission-id'], {'type': 'aborted-submission'})
         # if Submission.objects.filter(id=packet['submission-id']).update(status='AB', result='AB', points=0):
-        #     event.post('sub_%s' % Submission.get_id_secret(
-        #         packet['submission-id']), {'type': 'aborted-submission'})
-        #     self._post_update_submission(
-        #         packet['submission-id'], 'terminated', done=True)
+        self._post_update_submission(packet['submission-id'], 'terminated', done=True)
         #     json_log.info(self._make_json_log(
         #         packet, action='aborted', finish=True, result='AB'))
         # else:
@@ -593,7 +469,7 @@ class JudgeHandler(ZlibPacketHandler):
         json_log.info(self._make_json_log(
             packet, action='batch-end', batch=self.batch_id))
 
-    # def on_test_case(self, packet, max_feedback=SubmissionTestCase._meta.get_field('feedback').max_length):
+    async def on_test_case(self, packet, max_feedback=static.submission_case_max_feedback):
     #     logger.info('%s: %d test case(s) completed on: %s', self.name,
     #                 len(packet['cases']), packet['submission-id'])
 
@@ -645,25 +521,25 @@ class JudgeHandler(ZlibPacketHandler):
     #             points=test_case.points, total=test_case.total, status=test_case.status,
     #         ))
 
-    #     do_post = True
+        # do_post = True
 
-    #     if id in self.update_counter:
-    #         cnt, reset = self.update_counter[id]
-    #         cnt += 1
-    #         if time.monotonic() - reset > UPDATE_RATE_TIME:
-    #             del self.update_counter[id]
-    #         else:
-    #             self.update_counter[id] = (cnt, reset)
-    #             if cnt > UPDATE_RATE_LIMIT:
-    #                 do_post = False
-    #     if id not in self.update_counter:
-    #         self.update_counter[id] = (1, time.monotonic())
+        # if id in self.update_counter:
+        #     cnt, reset = self.update_counter[id]
+        #     cnt += 1
+        #     if time.monotonic() - reset > UPDATE_RATE_TIME:
+        #         del self.update_counter[id]
+        #     else:
+        #         self.update_counter[id] = (cnt, reset)
+        #         if cnt > UPDATE_RATE_LIMIT:
+        #             do_post = False
+        # if id not in self.update_counter:
+        #     self.update_counter[id] = (1, time.monotonic())
 
-    #     if do_post:
-    #         event.post('sub_%s' % Submission.get_id_secret(id), {
-    #             'type': 'test-case',
-    #             'id': max_position,
-    #         })
+        # if do_post:
+        await publish_dict(id, {
+                'type': 'test-case',
+                'cases': packet['cases']
+            })
     #         self._post_update_submission(id, state='test-case')
 
     #     SubmissionTestCase.objects.bulk_create(bulk_test_case_updates)
@@ -721,7 +597,11 @@ class JudgeHandler(ZlibPacketHandler):
         data.update(kwargs)
         return json.dumps(data, cls=ObjectIDEncoder)
 
-    # def _post_update_submission(self, id, state, done=False):
+    async def _post_update_submission(self, id, state, done=False):
+        publish_dict('submissions', {
+            'type': 'done-submission' if done else 'update-submission',
+            'state': state, 'id': id,
+        })
     #     if self._submission_cache_id == id:
     #         data = self._submission_cache
     #     else:
@@ -732,10 +612,10 @@ class JudgeHandler(ZlibPacketHandler):
     #         self._submission_cache_id = id
 
     #     if data['problem__is_public']:
-    #         event.post('submissions', {
-    #             'type': 'done-submission' if done else 'update-submission',
-    #             'state': state, 'id': id,
-    #             'contest': data['contest_object__key'],
-    #             'user': data['user_id'], 'problem': data['problem_id'],
-    #             'status': data['status'], 'language': data['language__key'],
-    #         })
+            # event.post('submissions', {
+            #     'type': 'done-submission' if done else 'update-submission',
+            #     'state': state, 'id': id,
+            #     'contest': data['contest_object__key'],
+            #     'user': data['user_id'], 'problem': data['problem_id'],
+            #     'status': data['status'], 'language': data['language__key'],
+            # })

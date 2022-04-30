@@ -63,24 +63,4 @@ async def register_auth(response: Response, f: OAuth2PasswordRequestForm = Depen
     return {"jwt": token}
 
 
-# from fapi.WebsocketSession import *
-# from fastapi import WebSocket
-# from fastapi import status
-# @auth_route.websocket('/ws')
-# async def ws_connectin(websocket: WebSocket, token: str = Query(''), typ: str=Query('plain')):
-#     """
-#     token: player对应的jwt口令，可以通过bot申请
-#     typ: 欲创建的ws连接种类，仅提供json和plain两种
-#     """
-#     logger.debug(token)
-#     p, msg = verify_player_jwt(token)
-#     if not p:
-#         await websocket.close(status.WS_1008_POLICY_VIOLATION)
-#     if typ == 'json':
-#         await SessionManager.hangon(await SessionManager.new(WebsocketSessionJson, websocket, p.pid))
-#     elif typ == 'plain':
-#         await SessionManager.hangon(await SessionManager.new(WebsocketSessionPlain, websocket, p.pid))
-#     else:
-#         await websocket.close(status.WS_1008_POLICY_VIOLATION)
 
-    

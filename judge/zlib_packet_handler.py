@@ -1,6 +1,6 @@
 from loguru import logger
 import zlib
-from network.misc import *
+from judge.misc import *
 import asyncio
 import traceback
 

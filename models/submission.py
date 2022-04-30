@@ -1,9 +1,11 @@
+from models.mixin.expandable import INVISIBLE, Expandable
 from mongoengine.document import *
 from mongoengine.fields import *
 from mongoengine.queryset.base import *
 from models.user import User
 from models.problem import Problem
 from models.runtime import Runtime
+from config import static
 
 SUBMISSION_RESULT = (
     ('AC', 'Accepted'),
@@ -47,10 +49,14 @@ class SubmissionTestCase(EmbeddedDocument):
     total = FloatField(verbose_name='points possible', )
     batch = IntField(verbose_name='batch number', )
     feedback = StringField(verbose_name='judging feedback')
+    extended_feedback = StringField(verbose_name='extended judging feedback')
     output = StringField(verbose_name='program output')
 
 
-class Submission(Document):
+class Submission(Document, Expandable):
+    participation = ReferenceField('ContestParticipation', reverse_delete_rule=DO_NOTHING, null=True)
+    is_pretest = BooleanField(default=False) # 是否只跑pretest
+
     STATUS = (
         ('QU', 'Queued'),
         ('P', 'Processing'),
@@ -65,14 +71,14 @@ class Submission(Document):
     
     meta = {'allow_inheritance': True}
     id = SequenceField(default=1, primary_key=True)
-    user = ReferenceField(User, reverse_delete_rule=CASCADE)
-    problem = ReferenceField(Problem, reverse_delete_rule=CASCADE)
-    language = ReferenceField(Runtime, reverse_delete_rule=CASCADE)
+    user = LazyReferenceField(User, reverse_delete_rule=CASCADE)
+    problem = LazyReferenceField(Problem, reverse_delete_rule=CASCADE)
+    language = LazyReferenceField(Runtime, reverse_delete_rule=CASCADE)
     date = DateTimeField()
 
     time = FloatField()
     memory = FloatField()
-    points = FloatField()
+    points = FloatField() # 赋分，显示为的分数，考虑到有时候需要手动判错
 
     status = StringField(default='QU', choices=STATUS)
     result = StringField(choices=SUBMISSION_RESULT)
@@ -80,14 +86,21 @@ class Submission(Document):
     error = StringField() # 编译错误信息
     current_testcase = IntField(default=0) # 当前用例
 
-    # batch = BooleanField(default=False) # 是否子任务
-    case_points = FloatField(default=0) # case分数
-    # case_total = FloatField(default=0)  # case总分
+    batch = BooleanField(default=False) # 是否子任务
+    cases = EmbeddedDocumentListField(SubmissionTestCase)
+    case_points = FloatField(default=0) # case实际分数
+    case_total = FloatField(default=0)  # case总分
 
     judge_date = DateTimeField()
     rejudge_date = DateTimeField()
 
+    source: INVISIBLE = StringField(max_length=static.source_code_limit)
+
     # is_pretested = BooleanField()
 
-
+    @classmethod
+    def get_id_secret(cls, sub_id):
+        return str(sub_id)
+        # return (hmac.new(utf8bytes(settings.EVENT_DAEMON_SUBMISSION_KEY), b'%d' % sub_id, hashlib.sha512)
+        #             .hexdigest()[:16] + '%08x' % sub_id)
 

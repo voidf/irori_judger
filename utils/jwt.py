@@ -21,15 +21,16 @@ def verify_login_jwt(token):
         return None, "unexpected error"
 
 
-async def general_before_request(auth: Request):
+async def should_login(auth: Request):
     """请求预处理，将令牌放入线程作用域g()"""
     try:
         logger.debug(auth.client.host)
         Authorization = auth.cookies.get('Authorization', None)
         if Authorization:
             g().user, g().msg = verify_login_jwt(Authorization)
-        else:
-            pass
+            if g().user:
+                return g().user
+        raise HTTPException(401, "this operation requires login")
     except:
         logger.critical(traceback.format_exc())
         raise HTTPException(400, "data error")

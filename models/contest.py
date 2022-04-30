@@ -5,10 +5,12 @@ from models.comment import Comment
 from models.user import User
 from models.problem import Problem
 from models.submission import Submission
+from mongoengine.queryset import *
 
 class ContestProblem(Document):
     """比赛状态的问题"""
     problem = ReferenceField(Problem, reverse_delete_rule=CASCADE)
+    alias_name = StringField() # 短题名，像是A、B、C、D1、D2这种
     points = FloatField() # IOI用赋分
     partial = BooleanField(default=True)
     is_pretested = BooleanField(default=False)
@@ -28,15 +30,15 @@ class Contest(Document):
         (SCOREBOARD_HIDDEN, 'Hidden permanently'),
     )
     # meta = {'allow_inheritance': True}
-    poster = ReferenceField(Comment, reverse_delete_rule=DO_NOTHING)
+    poster = LazyReferenceField(Comment, reverse_delete_rule=DO_NOTHING)
 
     id = StringField(primary_key=True)
     name = StringField()
 
-    authors = ListField(ReferenceField(User, reverse_delete_rule=PULL))
-    curators = ListField(ReferenceField(User, reverse_delete_rule=PULL))
+    authors = ListField(LazyReferenceField(User, reverse_delete_rule=PULL))
+    curators = ListField(LazyReferenceField(User, reverse_delete_rule=PULL))
 
-    problems = ListField(ReferenceField(ContestProblem, reverse_delete_rule=PULL))
+    problems = ListField(LazyReferenceField(ContestProblem, reverse_delete_rule=PULL))
     
     start_time = DateTimeField()
     end_time = DateTimeField()
@@ -52,10 +54,11 @@ class Contest(Document):
     is_private = BooleanField(default=False) # 是否带密码
     access_code = StringField() # 访问密码
 
-class ContestParicipation(Document):
-    """用户的比赛注册信息"""
-    contest = ReferenceField(Contest, reverse_delete_rule=CASCADE)
-    user = ReferenceField(User, reverse_delete_rule=CASCADE)
+class ContestParticipation(Document):
+    """用户的比赛注册信息，排行榜上就排这玩意"""
+    contest = LazyReferenceField(Contest, reverse_delete_rule=CASCADE)
+    submissions = ListField(LazyReferenceField(Submission, reverse_delete_rule=PULL))
+    user = LazyReferenceField(User, reverse_delete_rule=CASCADE)
 
     score = FloatField(default=0) # 分数 赛时检索用
     cumtime = FloatField(default=0) # 罚时
@@ -65,13 +68,10 @@ class ContestParicipation(Document):
 
     format_data = DictField() # 留作后用
 
-class ContestSubmission(Submission):
-    participation = ReferenceField(ContestParicipation, reverse_delete_rule=CASCADE)
-    points = FloatField
-    is_pretest = BooleanField(default=False) # 是否只跑pretest
+
 
 class Rating(Document):
-    participation = ReferenceField(ContestParicipation, reverse_delete_rule=CASCADE)
+    participation = ReferenceField(ContestParticipation, reverse_delete_rule=CASCADE)
     rank = IntField()
     rating = IntField()
 
