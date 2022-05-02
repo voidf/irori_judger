@@ -25,7 +25,7 @@ async def get_problem_list(page: int=1, perpage:int=20):
     total = len(Problem.objects())
     tail = page * perpage # 节约几个乘法
 
-    problem_list = [i.get_base_info() for i in Problem.objects(excludes=['desc'])[tail-perpage:tail]]
+    problem_list = [i.get_visible_fields() for i in Problem.objects.exclude('desc')[tail-perpage:tail]]
 
     return {
         'data': problem_list,

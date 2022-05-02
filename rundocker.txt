@@ -22,3 +22,9 @@ asyncio.ensure_future(judge_list.gen_judge('csu1000', 'CPP17', '#include<bits/st
 asyncio.ensure_future(judge_list.gen_judge('csu2464', 'CPP17', '#include<bits/stdc++.h> \n int main(){long long a,b,t;while(std::cin>>a>>b){std::cout<<a+b<<std::endl;}return 0;}',None,1))
 
 asyncio.ensure_future(judge_list.gen_judge('csu2464', 'CPP17', '#include<bits/stdc++.h> \n using namespace std;signed main(){int N, P;cin >> N >> P;if (P == 1)cout << -1 << endl;else cout << "1 1 " << P - 1 << endl;return 0;}',None,1))
+
+{
+  "source": "#include<bits/stdc++.h> \n using namespace std;signed main(){int N, P;cin >> N >> P;if (P == 1)cout << -1 << endl;else cout << \"1 1 \" << P - 1 << endl;return 0;}",
+  "problem_id": "csu2464",
+  "lang": "CPP20"
+}

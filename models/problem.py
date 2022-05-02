@@ -46,7 +46,7 @@ class ProblemGroup(Document, Expandable):
     """问题组，像hdu的来源"""
     name = StringField(primary_key=True)
     full_name = StringField() # 可选的全名
-    problems = ListField(LazyReferenceField('Problem', reverse_delete_rule=PULL))
+    problems = ListField(LazyReferenceField('Problem'))
     
 
 from models.runtime import Runtime
@@ -59,7 +59,7 @@ class SubmissionSourceAccess:
     FOLLOW = 'F'    # 跟随全局设置
 
 class LanguageLimit(EmbeddedDocument):
-    language = LazyReferenceField(Runtime, reverse_delete_rule=CASCADE)
+    language = LazyReferenceField(Runtime)
     time_limit = FloatField()
     memory_limit = IntField()
 
@@ -120,7 +120,7 @@ class Problem(Document, Expandable):
     solution_handle = LazyReferenceField(Comment, reverse_delete_rule=DO_NOTHING)
     solution_shown = BooleanField(default=True)
 
-
+ProblemGroup.register_delete_rule(Problem, 'problems', PULL)
 
 
 

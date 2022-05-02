@@ -26,10 +26,14 @@ class RuntimeVersion(Document, Expandable, Chkable):
     version = StringField()
 
     @classmethod
-    def runtime_chk(cls, lang: str, version: str):
-        r = cls.chk(lang+'/'+version)
+    def runtime_chk(cls, lang: str, version: list):
+        for p, i in enumerate(version):
+            version[p] = i[0] + '/' + '.'.join(str(x) for x in i[1])
+        
+        formatted_version = ', '.join(version)
+        r = cls.chk(f'{lang} ({formatted_version})')
         r.language = Runtime.chk(lang)
-        r.version = version
+        r.version = formatted_version
         return r.save()
     
     def get_readable(self):

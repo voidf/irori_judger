@@ -37,8 +37,8 @@ def preload() -> FastAPI:
     tier2: 后期考虑多worker的时候重写一下，不过应该也不会有需要用多worker那么大并发量
     """
     app = FastAPI()
-    from routers import master_router
-    app.include_router(master_router)
+    from routers import v1_router
+    app.include_router(v1_router)
     return app
 
 

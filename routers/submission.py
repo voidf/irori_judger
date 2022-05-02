@@ -12,7 +12,8 @@ from utils.broadcast import broadcaster
 from pydantic import BaseModel
 from config import static
 from jose import jwt
-
+from utils.ctx import g
+from judge.judge_list import judge_list
 import hashlib
 import datetime
 
@@ -50,16 +51,31 @@ class Submit(BaseModel):
 
 @submission_route.post('/')
 async def create_submission(submit: Submit):
+    s = Submission(
+        user=g().user,
+        problem=submit.problem_id,
+        language=submit.lang,
+        source=submit.source,
+        date=datetime.datetime.now()
+    ).save()
+    asyncio.create_task(judge_list.judge(
+        s.pk,
+        submit.problem_id,
+        submit.lang,
+        submit.source,
+        None,
+        3
+    ))
 
-    return 'to be done'
+    return {'submission_id:': s.pk}
 
 
 @submission_route.websocket('/{submission_id}')
 async def submission_async_detail(websocket: WebSocket, submission_id: str):
     """实时评测状态信息转发"""
-    async with broadcaster.subscribe(submission_id) as subscriber:
+    async with broadcaster.subscribe('sub_'+submission_id) as subscriber:
         async for event in subscriber:
-            if event.message == 'E':
+            if event.message.get('type') == 'done-submission':
                 await websocket.close(status.WS_1000_NORMAL_CLOSURE)
                 return
             await websocket.send_text(event.message)
@@ -71,7 +87,7 @@ async def submission_async_detail(websocket: WebSocket, submission_id: str):
 
 @submission_route.get('/{submission_id}')
 async def get_submission(submission_id: str):
-    p: Problem = Problem.objects(pk=submission_id).first()
+    p: Submission = Submission.objects(pk=submission_id).first()
     if not p:
         raise HTTPException(404, 'no such submission')
     return p.get_all_info()

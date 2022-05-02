@@ -6,11 +6,10 @@ from mongoengine.fields import *
 from mongoengine.pymongo_support import *
 from mongoengine.context_managers import *
 from mongoengine.document import *
-from models.mixin.chkable import Chkable
 
 INVISIBLE = TypeVar('INVISIBLE')
 
-class Expandable(Chkable):
+class Expandable():
     """
     递归地解引用展开Mixin类，不能处理成环情况，与mongoengine.document.Document搭配使用
     

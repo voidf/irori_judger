@@ -13,19 +13,20 @@ import json
 import logging
 json_log = logging.getLogger('judge.json.bridge')
 from models.submission import Submission, SubmissionTestCase
-from models.contest import ContestParticipation, ContestSubmission
-from models.problem import LanguageLimit, Problem
+from models.problem import Problem
 from models.judger import Judger
+from models.contest import ContestParticipation
 from utils.broadcast import broadcaster
+from mongoengine.dereference import LazyReference
 
 from config import static
 from collections import namedtuple
 
 SubmissionData = namedtuple(
-    'SubmissionData', 'time memory short_circuit pretests_only contest_no attempt_no user_id')
+    'SubmissionData', 'time memory short_circuit pretests_only contest_no attempt_no user')
 
 async def publish_submission(id: str, dict_msg: dict):
-    await broadcaster.publish(f'sub_{id}', json.dumps(dict_msg))
+    await broadcaster.publish(f'sub_{id}', dict_msg)
 
 def _ensure_connection():
     pass
@@ -118,6 +119,9 @@ class JudgeHandler(ZlibPacketHandler):
                 result = False
         else:
             result = True
+            j = Judger.chk(id)
+            j.pw_set(key)
+            j.save()
 
         if not result:
             json_log.warning(self._make_json_log(
@@ -133,8 +137,8 @@ class JudgeHandler(ZlibPacketHandler):
 
         versions = []
         
-        for name, version in enumerate(self.executors):
-            versions.append(RuntimeVersion.runtime_chk(name, '.'.join(version)).pk)
+        for name, version in self.executors.items():
+            versions.append(RuntimeVersion.runtime_chk(name, version).pk)
         
         judge.runtimes = versions
 
@@ -204,12 +208,81 @@ class JudgeHandler(ZlibPacketHandler):
 
         # s: Submission = Submission.objects(pk=submission).first()
         try:
-            pid, lang_limits, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = (
-                Submission.objects.filter(pk=submission)
-                          .scalar('problem__id', 'problem__language_limit', 'problem__time_limit', 'problem__memory_limit',
-                                       'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__id',
-                                       'participation__virtual', 'participation__id')).get()
+            pipeline_result: dict = Submission.objects.aggregate([
+                {'$match':{'_id': submission}},
+                {
+                    '$lookup':{
+                        'from': Problem._get_collection_name(),
+                        'localField': 'problem',
+                        'foreignField': '_id',
+                        'as': 'problem'
+                    },
+                },
+                {
+                    '$lookup':{
+                        'from': ContestParticipation._get_collection_name(),
+                        'localField': 'participation',
+                        'foreignField': '_id',
+                        'as': 'participation'
+                    }
+                },
+                {
+                    '$project':{
+                        'problem.language_limit': True,
+                        'problem._id': True,
+                        'problem.short_circuit': True,
+                        'problem.time_limit': True,
+                        'problem.memory_limit': True,
+                        'is_pretested': True,
+                        'language': True,
+                        'date': True,
+                        'user': True,
+                        'participation.virtual': True,
+                        'participation._id': True,
+                    }
+                },
+            ]).next()
             
+            problem = pipeline_result['problem'][0]
+            pid = problem['_id']
+            lang_limits = problem.get('language_limit', [])
+            time = problem['time_limit']
+            memory = problem['memory_limit']
+            short_circuit = problem['short_circuit']
+            lid = pipeline_result['language']
+            is_pretested = pipeline_result['is_pretested']
+            sub_date = pipeline_result['date'] # datetime
+            uid = pipeline_result['user']
+            participation = pipeline_result['participation']
+
+            if participation:
+                part_id = participation[0]['_id']
+                part_virtual = participation[0]['virtual']
+                attempt_no = Submission.objects.aggregate([
+                    {
+                        '$match':{
+                            '$and':[
+                                {'problem': pid},
+                                {'participation':part_id},
+                                {'user': uid},
+                                {'date': {'$lt': sub_date}},
+                                {'status': {'$nin': ('CE', 'IE')}}
+                            ]
+                        }
+                    },{'$count': 'attempt_no'}
+                ]).next()['attempt_no']
+            else:
+                part_id, part_virtual, attempt_no = None, None, None
+
+
+            # pid, lang_limits, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = (
+            #     Submission.objects.filter(pk=submission)
+            #               .scalar('problem__code', 'problem__language_limit', 'problem__time_limit', 'problem__memory_limit',
+            #                            'problem__short_circuit', 'language__key', 'is_pretested', 'date', 'user__handle',
+            #                            'participation__virtual', 'participation')).get()
+            # pid, lang_limits, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = 
+            logger.warning(part_id)
+            logger.warning(type(part_id))
             for i in lang_limits:
                 if i.pk == lid:
                     time, memory = i.time_limit, i.memory_limit
@@ -226,8 +299,8 @@ class JudgeHandler(ZlibPacketHandler):
             #     part_virtual = pa.virtual
             #     part_id = pa.pk
 
-            attempt_no = Submission.objects(problem__id=pid, participation__id=part_id, user__id=uid,
-                                        date__lt=sub_date, status__nin=('CE', 'IE')).count() + 1
+            # attempt_no = Submission.objects(problem__id=pid, participation__id=part_id, user__id=uid,
+            #                             date__lt=sub_date, status__nin=('CE', 'IE')).count() + 1
             # else:
             #     is_pretested = False
             #     part_virtual = None
@@ -243,7 +316,7 @@ class JudgeHandler(ZlibPacketHandler):
                 pretests_only=is_pretested,
                 contest_no=part_virtual,
                 attempt_no=attempt_no,
-                user_id=uid,
+                user=uid,
             )
         # except:
         except Submission.DoesNotExist:
@@ -270,7 +343,7 @@ class JudgeHandler(ZlibPacketHandler):
             pretests_only=False,
             contest_no=1,
             attempt_no=1,
-            user_id=1,
+            user=1,
         )
         self._working = id
         self._no_response_job = asyncio.create_task(self._kill_if_no_response())
@@ -287,7 +360,7 @@ class JudgeHandler(ZlibPacketHandler):
                 'pretests-only': data.pretests_only,
                 'in-contest': data.contest_no,
                 'attempt-no': data.attempt_no,
-                'user': data.user_id,
+                'user': data.user,
             },
         })
 
@@ -308,7 +381,7 @@ class JudgeHandler(ZlibPacketHandler):
         # _ensure_connection()
 
         id = packet['submission-id']
-        if Submission.objects.filter(pk=id).update(status='P', judged_on=self.judge):
+        if Submission.objects(pk=id).update(status='P', judged_on=self.judge):
             await publish_submission(id, {'type': 'processing'})
             # event.post('sub_%s' % Submission.get_id_secret(
                 # id), {'type': 'processing'})
@@ -338,7 +411,7 @@ class JudgeHandler(ZlibPacketHandler):
         if self._no_response_job:
             self._no_response_job.cancel()
             self._no_response_job = None
-        self.on_submission_processing(packet)
+        await self.on_submission_processing(packet)
 
     async def abort(self):
         await self.send({'name': 'terminate-submission'})
@@ -387,9 +460,9 @@ class JudgeHandler(ZlibPacketHandler):
             action='update-problems', count=len(self.problems)))
 
     async def on_grading_begin(self, packet):
-        logger.info(f'{self.name}: Grading has begun on: {packet["submission-id"]}')
-        self.batch_id = None
         id = packet['submission-id']
+        logger.info(f'{self.name}: Grading has begun on: {id}')
+        self.batch_id = None
 
         if Submission.objects(pk=id).update(
                 status='G', is_pretested=packet['pretested'], current_testcase=1,
@@ -400,7 +473,7 @@ class JudgeHandler(ZlibPacketHandler):
             await publish_submission(id, {'type': 'grading-begin'})
             # event.post('sub_%s' % Submission.get_id_secret(
                 # id), {'type': 'grading-begin'})
-            self._post_update_submission(id, 'grading-begin')
+            await self._post_update_submission(id, 'grading-begin')
             json_log.info(self._make_json_log(packet, action='grading-begin'))
         else:
             logger.warning(f'Unknown submission: {id}')
@@ -409,12 +482,16 @@ class JudgeHandler(ZlibPacketHandler):
     
 
     async def on_grading_end(self, packet):
-        logger.info(f'{self.name}: Grading has ended on: {packet["submission-id"]}')
+        id = packet["submission-id"]
+        logger.info(f'{self.name}: Grading has ended on: {id}')
         self._free_self(packet)
         self.batch_id = None
         id = packet['submission-id']
         try:
             submission: Submission = Submission.objects(pk=id).first()
+            # raw_submission = Submission.objects.aggregate([
+            #     {}
+            # ]).next()
         except Submission.DoesNotExist:
             logger.warning(f'Unknown submission: {id}')
             json_log.error(self._make_json_log(
@@ -454,9 +531,10 @@ class JudgeHandler(ZlibPacketHandler):
         submission.case_points = points
         submission.case_total = total
 
-        problem = submission.problem
-        sub_points = round(points / total * problem.points if total > 0 else 0, 3)
-        if not problem.partial and sub_points != problem.points:
+        problem = submission.problem.fetch()
+        # sub_points = round(points / total * problem.points if total > 0 else 0, 3)
+        sub_points = round(points if total > 0 else 0, 3)
+        if not problem.partial and sub_points != total:
             sub_points = 0
 
         submission.status = 'D'
@@ -468,8 +546,8 @@ class JudgeHandler(ZlibPacketHandler):
 
         json_log.info(self._make_json_log(
             packet, action='grading-end', time=time, memory=memory,
-            points=sub_points, total=problem.points, result=submission.result,
-            case_points=points, case_total=total, user=submission.user_id,
+            points=sub_points, total=total, result=submission.result,
+            case_points=points, case_total=total, user=submission.user,
             problem=problem.code, finish=True,
         ))
 
@@ -490,7 +568,7 @@ class JudgeHandler(ZlibPacketHandler):
             'time': time,
             'memory': memory,
             'points': float(points),
-            'total': float(problem.points),
+            'total': total,
             'result': submission.result,
         })
 
@@ -504,7 +582,7 @@ class JudgeHandler(ZlibPacketHandler):
         #     participation = submission.contest.participation
         #     event.post('contest_%d' %
         #                participation.contest_id, {'type': 'update'})
-        self._post_update_submission(submission.id, 'grading-end', done=True)
+        await self._post_update_submission(submission.id, 'grading-end', done=True)
 
     async def on_compile_error(self, packet):
         id = packet['submission-id']
@@ -517,7 +595,7 @@ class JudgeHandler(ZlibPacketHandler):
                 'type': 'compile-error',
                 'log': packet['log'],
             })
-            self._post_update_submission(id, 'compile-error', done=True)
+            await self._post_update_submission(id, 'compile-error', done=True)
             json_log.info(self._make_json_log(packet, action='compile-error', log=packet['log'],
                                               finish=True, result='CE'))
         else:
@@ -548,7 +626,7 @@ class JudgeHandler(ZlibPacketHandler):
         id = packet['submission-id']
         if Submission.objects(pk=id).update(status='IE', result='IE', error=packet['message']):
             await publish_submission(id, {'type': 'internal-error'})
-            self._post_update_submission(id, 'internal-error', done=True)
+            await self._post_update_submission(id, 'internal-error', done=True)
             json_log.info(self._make_json_log(packet, action='internal-error', message=packet['message'],
                                               finish=True, result='IE'))
         else:
@@ -558,12 +636,12 @@ class JudgeHandler(ZlibPacketHandler):
 
     async def on_submission_terminated(self, packet):
         id = packet['submission-id']
-        logger.info(f'{self.name}: Submission aborted: {packet["submission-id"]}')
+        logger.info(f'{self.name}: Submission aborted: {id}')
         self._free_self(packet)
 
         if Submission.objects(pk=id).update(status='AB', result='AB', points=0):
             await publish_submission(id, {'type': 'aborted-submission'})
-            self._post_update_submission(id, 'terminated', done=True)
+            await self._post_update_submission(id, 'terminated', done=True)
             json_log.info(self._make_json_log(
                 packet, action='aborted', finish=True, result='AB'))
         else:
@@ -572,7 +650,8 @@ class JudgeHandler(ZlibPacketHandler):
                                                finish=True, result='AB'))
 
     async def on_batch_begin(self, packet):
-        logger.info(f'{self.name}: Batch began on: {packet["submission-id"]}')
+        id = packet["submission-id"]
+        logger.info(f'{self.name}: Batch began on: {id}')
         self.in_batch = True
         if self.batch_id is None:
             self.batch_id = 0
@@ -659,7 +738,7 @@ class JudgeHandler(ZlibPacketHandler):
                 'type': 'test-case',
                 'id': max_position,
             })
-            self._post_update_submission(id, state='test-case')
+            await self._post_update_submission(id, state='test-case')
 
     #     SubmissionTestCase.objects.bulk_create(bulk_test_case_updates)
 
@@ -704,6 +783,10 @@ class JudgeHandler(ZlibPacketHandler):
             def default(self, obj):
                 if isinstance(obj, ObjectId):
                     return str(obj)
+                if isinstance(obj, LazyReference):
+                    # logger.critical(dir(obj))
+                    return str(obj.pk)
+
                 return super().default(obj)
         data = {
             'judge': self.name,
@@ -720,17 +803,46 @@ class JudgeHandler(ZlibPacketHandler):
         if self._submission_cache_id == id:
             data = self._submission_cache
         else:
-            self._submission_cache = data = Submission.objects(pk=id).scalar(
-                'problem__is_public', 'participation__contest__pk',
-                'user', 'problem', 'status', 'language__key',
-            ).get()
+            self._submission_cache = data = Submission.objects.aggregate([
+                {'$match': {'_id': 1}},
+                {
+                    '$lookup':{
+                        'from': ContestParticipation._get_collection_name(),
+                        'localField': 'participation',
+                        'foreignField': '_id',
+                        'as': 'participation'
+                    }
+                },
+                {
+                    '$lookup':{
+                        'from': Problem._get_collection_name(),
+                        'localField': 'problem',
+                        'foreignField': '_id',
+                        'as': 'problem'
+                    }
+                },
+                {
+                    '$project':{
+                        'user': True,
+                        'problem._id': True,
+                        'problem.is_public': True,
+                        'status': True,
+                        'language': True,
+                        'participation.contest': True
+                    }
+                }
+            ]).next()
+            # Submission.objects(pk=id).scalar(
+            #     'problem__is_public', 'participation__contest__pk',
+            #     'user', 'problem', 'status', 'language__key',
+            # ).get()
             self._submission_cache_id = id
 
-        if data[0]:
+        if data['problem'][0]['is_public']:
             await broadcaster.publish('submissions', {
                 'type': 'done-submission' if done else 'update-submission',
                 'state': state, 'id': id,
-                'contest': data[1],
-                'user': data[2].pk, 'problem': data[3].pk,
-                'status': data[4], 'language': data[5],
+                'contest': data['participation'][0]['contest'] if data['participation'] else None,
+                'user': data['user'], 'problem': data['problem'][0]['_id'],
+                'status': data['status'], 'language': data['language'],
             })

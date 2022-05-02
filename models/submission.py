@@ -1,3 +1,4 @@
+from models.judger import Judger
 from models.mixin.expandable import INVISIBLE, Expandable
 from mongoengine.document import *
 from mongoengine.fields import *
@@ -55,7 +56,7 @@ class SubmissionTestCase(EmbeddedDocument):
 
 class Submission(Document, Expandable):
     participation = ReferenceField('ContestParticipation', reverse_delete_rule=DO_NOTHING, null=True)
-    is_pretest = BooleanField(default=False) # 是否只跑pretest
+    is_pretested = BooleanField(default=False) # 是否跑过pretest
 
     STATUS = (
         ('QU', 'Queued'),
@@ -70,11 +71,11 @@ class Submission(Document, Expandable):
     RESULT = SUBMISSION_RESULT
     
     meta = {'allow_inheritance': True}
-    id = SequenceField(default=1, primary_key=True)
+    id = SequenceField(primary_key=True)
     user = LazyReferenceField(User, reverse_delete_rule=CASCADE)
     problem = LazyReferenceField(Problem, reverse_delete_rule=CASCADE)
     language = LazyReferenceField(Runtime, reverse_delete_rule=CASCADE)
-    date = DateTimeField()
+    date = DateTimeField() # 提交日期
 
     time = FloatField()
     memory = FloatField()
@@ -91,8 +92,9 @@ class Submission(Document, Expandable):
     case_points = FloatField(default=0) # case实际分数
     case_total = FloatField(default=0)  # case总分
 
-    judge_date = DateTimeField()
     rejudge_date = DateTimeField()
+    judged_date = DateTimeField()
+    judged_on = ReferenceField(Judger) # 在哪台机子上评测
 
     source: INVISIBLE = StringField(max_length=static.source_code_limit)
 

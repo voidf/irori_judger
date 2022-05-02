@@ -1,8 +1,9 @@
+from models.mixin.chkable import Chkable
 from mongoengine.document import Document
 from mongoengine.fields import *
 from utils.password import encrypt
 
-class Judger(Document):
+class Judger(Document, Chkable):
     """
     评测机的数据，用于认证评测机，查询在线状态等
 
@@ -26,8 +27,11 @@ class Judger(Document):
     def __str__(self):
         return self.name
 
-    def verify(self, key):
+    def pw_chk(self, key):
         return encrypt(key) == self.auth_key
+    def pw_set(self, key):
+        self.auth_key = encrypt(key)
+        return self
 """ TODO
     def disconnect(self, force=False):
         disconnect_judge(self, force=force)

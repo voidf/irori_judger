@@ -43,8 +43,8 @@ class User(Document):
     last_ip = StringField()         # 上次ip
 
     rating = IntField(default=1500) # 留作后用
-    solved = ListField(LazyReferenceField('Problem', reverse_delete_rule=PULL))
-    tried = ListField(LazyReferenceField('Problem', reverse_delete_rule=PULL))
+    solved = ListField(LazyReferenceField('Problem'))
+    tried = ListField(LazyReferenceField('Problem'))
 
     api_token = StringField() # 注意维护唯一性
 

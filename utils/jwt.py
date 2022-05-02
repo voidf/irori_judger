@@ -13,7 +13,7 @@ def verify_login_jwt(token):
         payload = jwt.decode(token, secret.jwt_key)
         if datetime.datetime.now().timestamp() > float(payload['ts']):
             return None, "token expired"
-        if not (u := User.objects(pk=payload['user'])):
+        if not (u := User.objects(pk=payload['user']).first()):
             return None, "user not exists"
         return u, ""
     except:

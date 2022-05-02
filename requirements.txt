@@ -7,3 +7,7 @@ python-magic
 # 本地多进程广播用，之后如果用redis就改成broadcaster[redis]
 broadcaster
 # https://stackoverflow.com/questions/24687061/can-i-somehow-share-an-asynchronous-queue-with-a-subprocess
+motor[srv]
+mongoengine # 目前需要它提供的模型，后期再考虑去掉这个依赖
+fastapi
+pytest
