@@ -9,6 +9,8 @@ import hashlib
 import datetime
 from config import secret
 
+from fastapi import status
+
 import asyncio
 auth_route = APIRouter(
     prefix="/auth",
@@ -53,6 +55,8 @@ class register_form(BaseModel):
 async def register_auth(response: Response, f: OAuth2PasswordRequestForm = Depends()):
     """用户注册，令牌写在cookie里"""
     expires = 86400
+    if not f.username or not f.password:
+        raise HTTPException(400, 'handle or password cannot be empty')
     if User.objects(pk=f.username):
         raise HTTPException(400, 'user handle already exists')
     u = User(pk=f.username)
