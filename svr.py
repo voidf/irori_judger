@@ -15,7 +15,7 @@ import zlib
 from typing import *
 import asyncio
 import traceback
-
+from fastapi.middleware.cors import CORSMiddleware
 # from models.submission import Submission
 from models import *
 from judge import *
@@ -37,6 +37,14 @@ def preload() -> FastAPI:
     tier2: 后期考虑多worker的时候重写一下，不过应该也不会有需要用多worker那么大并发量
     """
     app = FastAPI()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=['*'],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     from routers import v1_router
     app.include_router(v1_router)
     return app
