@@ -18,9 +18,11 @@ problem_route = APIRouter(
 )
 
 
-@problem_route.get('/')
+@problem_route.get('')
 async def get_problem_list(page: int=1, perpage:int=20):
+    """2RTT的查询，需要优化"""
     perpage = min(static.perpage_limit, perpage)
+    perpage = max(1, perpage)
     page = max(1, page)
     total = len(Problem.objects())
     tail = page * perpage # 节约几个乘法
@@ -42,7 +44,7 @@ async def get_problem(problem_id: str):
         raise HTTPException(404, 'no such problem')
     return p.get_all_info()
 
-@problem_route.post('/')
+@problem_route.post('')
 async def create_problem():
     raise HTTPException(402, '你给钱我就写')
 

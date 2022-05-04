@@ -44,7 +44,7 @@ async def login_auth(response: Response, f: OAuth2PasswordRequestForm = Depends(
         raise login_invalid
 
     token = generate_login_jwt(u, expires)
-    response.set_cookie("Authorization", token, expires)
+    response.set_cookie("Authorization", token, expires, samesite='None', secure=True)
     return {"jwt": token}
 
 class register_form(BaseModel):
@@ -63,7 +63,7 @@ async def register_auth(response: Response, f: OAuth2PasswordRequestForm = Depen
     u.pw_set(f.password)
     u.save()
     token = generate_login_jwt(u, expires)
-    response.set_cookie("Authorization", token, expires)
+    response.set_cookie("Authorization", token, expires, samesite='None', secure=True)
     return {"jwt": token}
 
 

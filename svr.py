@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from loguru import logger
 import tracemalloc
 import uvicorn
@@ -44,6 +44,30 @@ def preload() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware('http')
+    async def cors_everywhere(request: Request, call_next):
+        logger.debug(request.headers)
+        logger.warning(request.cookies)
+        # start_time = time.time()
+        response = await call_next(request)
+        # process_time = time.time() - start_time
+        # response.headers["X-Process-Time"] = str(process_time)
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get('origin', '*')
+        logger.debug(response.headers)        
+        return response
+
+    # @app.middleware('https')
+    # async def cors_everywhere(request: Request, call_next):
+    #     # logger.debug(request.headers)
+    #     # start_time = time.time()
+    #     response = await call_next(request)
+    #     # process_time = time.time() - start_time
+    #     # response.headers["X-Process-Time"] = str(process_time)
+    #     response.headers["Access-Control-Allow-Origin"] = request.headers.get('origin', '*')
+    #     # logger.debug(response.headers)        
+    #     return response
+
 
     from routers import v1_router
     app.include_router(v1_router)
