@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from mongoengine import *
 from mongoengine.document import Document, EmbeddedDocument
 from mongoengine.fields import *
@@ -103,14 +104,30 @@ class Problem(Document, Expandable):
 
 
     # 题面数据什么的应该存文件里
-    desc: INVISIBLE = StringField() # 描述
+    # desc: INVISIBLE = StringField() # 描述
+    @dataclass
+    class DESC_STRUCTURE:
+        description: str
+        input: str
+        output: str
+        hint: str
+        source: str
+        author: str
+        sample_input: str
+        sample_output: str
+        def __getitem__(self, item):
+            return getattr(self, item)
+        def items(self): return self.__dict__.items()
+
+    # {default: [<DESC_STRUCTURE>], en: [<DESC_STRUCTURE>], zh: [<DESC_STRUCTURE>] ...}
+    desc: INVISIBLE = DictField()
     title = StringField()
-    DESC_TYPE = (
-        ('M', 'Markdown'),
-        ('L', 'LaTeX'),
-        ('H', 'html'),
-    )
-    desc_type = StringField(choices=DESC_TYPE)
+    # DESC_TYPE = (
+    #     ('M', 'Markdown'),
+    #     ('L', 'LaTeX'),
+    #     ('H', 'html'),
+    # )
+    # desc_type = StringField(choices=DESC_TYPE)
 
     language_limit = EmbeddedDocumentListField(LanguageLimit)
 

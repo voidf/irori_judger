@@ -56,7 +56,7 @@ for oldid in os.listdir(src):
     if 'custom_judge' in init:
         os.rename(path+'/spj', path+'/spj.elf')
         
-    with open(path+'/init.yml', 'w', encoding='utf-8') as f:
+    with open(path+'/init.yml', 'w', encoding='utf-8', newline='\n') as f:
         yaml.dump(init, f)
 
 

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import datetime
 from io import BytesIO
 import os, sys
+import shutil
+from loguru import logger
 cur = sys.path[0]
 parent = cur[:cur.rfind('\\')]
 os.chdir(parent)
@@ -184,12 +186,98 @@ with open(p_info, 'r', encoding='utf-8') as f_info, open(p_md, 'r', encoding='ut
     j_md = json.load(f_md)
 """
 
-with open('assets/template_desc_csuoj.md', 'r', encoding='utf-8') as f:
-    md_template = f.read()
+# with open('assets/template_desc_csuoj.md', 'r', encoding='utf-8') as f:
+#     md_template = f.read()
 
 
-
+details = [
+    'description',
+    'input',
+    'output',
+    'hint',
+    'source',
+    'author',
+]
+details_mp = {
+    'description': 1,
+    'input': 2,
+    'output': 3,
+    'sample_input': 4,
+    'sample_output': 5,
+    'hint': 6,
+    'source': 7,
+    'author': 8,
+}
 # print(md_template)
+def decoder2(s):
+    return s.replace('\\r', '\r').replace('\\n','\n').replace('\\\\','\\')
+
+def decoder1(s):
+    return s.encode('utf-8').decode('unicode-escape')
+
+validator = r'C:\Users\ATRI\Desktop\data'
+import re
+non_ascii = re.compile(r'[^\x00-\x7F]')
+
+def decoder_all(s) -> str:
+    if re.search(non_ascii, s):
+        return decoder2(s)
+    try:
+        return decoder1(s)
+    except:
+        return decoder2(s)
+    
+def fetcher(id, i):
+    flg = False
+    try:
+        with open(f'{validator}\\{id}\\sample.in') as f:
+            fin = f.read()
+    except Exception as e:
+        if not os.path.exists(f'{validator}\\{id}'):
+            f = True
+            os.mkdir(f'{validator}\\{id}')
+            shutil.copytree(
+                r'D:\SETU\irori_judger\assets\sampledir',
+                f'D:\\SETU\\Problems\\csu{id}'
+            )
+        logger.error(e)
+        s = decoder_all(i['sample_input'])
+        print(s)
+        cmd = input('(Y/n)>>>')
+        if cmd == 'n':
+            sys.exit(1)
+
+        with open(f'{validator}\\{id}\\sample.in', 'w', newline='\n') as f:
+            f.write(s)
+            if not s.endswith('\n'):
+                f.write('\n')
+        fin = s
+
+    try:
+        with open(f'{validator}\\{id}\\sample.out') as f:
+            fout = f.read()
+    except Exception as e:
+        logger.error(e)
+        s = decoder_all(i['sample_output'])
+        print(s)
+        cmd = input('(Y/n)>>>')
+        if cmd == 'n':
+            sys.exit(1)
+        with open(f'{validator}\\{id}\\sample.out', 'w', newline='\n') as f:
+            f.write(s)
+            if not s.endswith('\n'):
+                f.write('\n')
+        fout = s
+    if flg:
+        shutil.copytree(
+            f'{validator}\\{id}', 
+            f'D:\\SETU\\Problems\\csu{id}',)
+    # with open(f'{validator}\\{id}\\sample.out') as f:
+        # fout = f.read()
+    return fin, fout
+
+
+
 d = {i['_id']:i for i in j_md}
 for i in j_info:
     pid = i['_id']
@@ -203,10 +291,24 @@ for i in j_info:
     P.memory_limit = i['memory_limit'] * 1024
     P.short_circuit = True
     P.partial = False
-    P.desc_type = Problem.DESC_TYPE[0][0]
-    P.desc = md_template
-    P.desc = P.desc.replace('"sample_input"', i['input'])
-    P.desc = P.desc.replace('"sample_output"', i['sample_output'])
+    # P.desc_type = Problem.DESC_TYPE[0][0]
+    # P.desc = md_template
+    fin, fout = fetcher(pid, i)
+    desc_list = [
+        {
+            'head': 'sample_input',
+            'body': fin,
+            'type': 'copy'
+        },
+        {
+            'head': 'sample_output',
+            'body': fout,
+            'type': 'copy'
+        },
+    ]
+
+    # P.desc = P.desc.replace('"sample_input"', i['sample_input'])
+    # P.desc = P.desc.replace('"sample_output"', i['sample_output'])
     P.title = i['title']
 
     if i['defunct'] == '1':
@@ -215,32 +317,46 @@ for i in j_info:
         P.is_public = True
         P.date = datetime.datetime.strptime(i['in_date'], '%Y-%m-%d %H:%M:%S')
 
-    if pid in d:
-        minfo = d[pid]
+    if minfo:=d.get(pid, None):
         for k, v in minfo.items():
             if isinstance(v, str):
-                P.desc = P.desc.replace(f'"{k}"', v)
+                desc_list.append({'head': k, 'body': v, 'type': 'md'})
         d.pop(pid)
     else:
-        P.desc = P.desc.replace('"description"', i['description'])
-        P.desc = P.desc.replace('"input"', i['input'])
-        P.desc = P.desc.replace('"output"', i['output'])
-        P.desc = P.desc.replace('"hint"', i['hint'])
-        P.desc = P.desc.replace('"source"', i['source'])
-        P.desc = P.desc.replace('"author"', i['author'])
+        for k in details:
+            desc_list.append({'head': k, 'body': i[k], 'type': 'html'})
+        # P.desc = P.desc.replace('"description"', i['description'])
+        # P.desc = P.desc.replace('"input"', i['input'])
+        # P.desc = P.desc.replace('"output"', i['output'])
+        # P.desc = P.desc.replace('"hint"', i['hint'])
+        # P.desc = P.desc.replace('"source"', i['source'])
+        # P.desc = P.desc.replace('"author"', i['author'])
 
-    if i.attach in zip_index:
-        for fnamelist in zip_index[i.attach]:
-            file_descriptor = uploaded.open('/'.join(fnamelist))
-            f_orm = FileStorage.upload(fnamelist[-1], file_descriptor)
-            f_orm.uploader = '$CSUOJ_Migrator$'
-            f_orm.save()
-            P.desc = P.desc.replace(f"/upload/{'/'.join(fnamelist)}", 
-                # f"{config.static.oss_host}/oss/{f_orm.pk}"
-                f"/oss/{f_orm.pk}" # 用nginx反代把路径代到指定服务器
-            )
+    # if i.attach in zip_index:
+    #     for fnamelist in zip_index[i.attach]:
+    #         flg = False
+    #         for it in desc_list:
+    #             if it['body'].find(f"/upload/{'/'.join(fnamelist)}") != -1:
+    #                 flg = True
+    #         if flg == False:
+    #             continue
 
+    #         file_descriptor = uploaded.open('/'.join(fnamelist))
+    #         f_orm = FileStorage.upload(fnamelist[-1], file_descriptor)
+    #         f_orm.uploader = '$CSUOJ_Migrator$'
+    #         f_orm.save()
+    #         for it in desc_list:
+    #             it['body'] = it['body'].replace(f"/upload/{'/'.join(fnamelist)}",f"/oss/{f_orm.pk}")
+
+
+    nlist = []
+    for it in desc_list:
+        if it['body'].strip():
+            nlist.append(it)
+    nlist.sort(key=lambda x:details_mp[x['head']])
+    P.desc['default'] = nlist
     P.save()
+    print(P.pk)
     
 
 # for pid, it in d.items():

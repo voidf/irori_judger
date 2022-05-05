@@ -1,0 +1,5 @@
+test_cases:
+- batched:
+  - in: sample.in
+    out: sample.out
+  points: 100
