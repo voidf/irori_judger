@@ -5,6 +5,7 @@ import datetime
 from io import BytesIO
 import os, sys
 import shutil
+import traceback
 from loguru import logger
 cur = sys.path[0]
 parent = cur[:cur.rfind('\\')]
@@ -129,9 +130,9 @@ def RS3(c):
     if c == "'":
         strbuf.append("'")
         state = RS
-    elif c == '\\':
-        strbuf.append('\\')
-        state = RS
+    # elif c == '\\':
+    #     strbuf.append('\\')
+    #     state = RS
     else:
         strbuf.append('\\')
         strbuf.append(c)
@@ -145,12 +146,12 @@ state_map = {
     'RI': RI,
 }
 state = EB
-# with open(r'C:\Users\ATRI\Desktop\problems_md_raw.sql', 'r', encoding='utf-8') as f:
-    # for c in f.read():
-        # state(c)
-    # for ent in entbuf:
-        # assert len(ent) == 7
-    # j_md = [ProblemMD(*ent) for ent in entbuf]
+with open(r'C:\Users\ATRI\Desktop\problems_md_raw.sql', 'r', encoding='utf-8') as f:
+    for c in f.read():
+        state(c)
+    for ent in entbuf:
+        assert len(ent) == 7
+    j_md = [ProblemMD(*ent) for ent in entbuf]
 
 # with open(r'C:\Users\ATRI\Desktop\problems_md_raw.pickle', 'wb') as f:
     # pickle.dump(j_md, f)
@@ -161,33 +162,21 @@ entbuf.clear()
 state = EB
 
 # with open(r'C:\Users\ATRI\Desktop\problems_raw.sql', 'r', encoding='utf-8') as f:
-    # for c in f.read():
-        # state(c)
-    # for ent in entbuf:
-    #     if len(ent) != 19:
-    #         print(ent)
-    #     assert len(ent) == 19
-    # j_info = [ProblemRAW(*ent) for ent in entbuf]
+#     for c in f.read():
+#         state(c)
+#     for ent in entbuf:
+#         if len(ent) != 19:
+#             print(ent)
+#         assert len(ent) == 19
+#     j_info = [ProblemRAW(*ent) for ent in entbuf]
 
 # with open(r'C:\Users\ATRI\Desktop\problems_raw.pickle', 'wb') as f:
-    # pickle.dump(j_info, f)
+#     pickle.dump(j_info, f)
 with open(r'C:\Users\ATRI\Desktop\problems_raw.pickle', 'rb') as f:
     j_info = pickle.load(f)
 
 spj = ProblemType.objects(pk='spj').first()
 common = ProblemType.objects(pk='common').first()
-
-r"""
-p_info = r'C:\Users\ATRI\Desktop\problem.json'
-p_md = r'C:\Users\ATRI\Desktop\problem_md.json'
-
-with open(p_info, 'r', encoding='utf-8') as f_info, open(p_md, 'r', encoding='utf-8') as f_md:
-    j_info = json.load(f_info)
-    j_md = json.load(f_md)
-"""
-
-# with open('assets/template_desc_csuoj.md', 'r', encoding='utf-8') as f:
-#     md_template = f.read()
 
 
 details = [
@@ -210,22 +199,33 @@ details_mp = {
 }
 # print(md_template)
 def decoder2(s):
-    return s.replace('\\r', '\r').replace('\\n','\n').replace('\\\\','\\')
+    return s.replace('\\r', '\r').replace('\\n','\n').replace('\\t','\t')
+
+from codecs import encode, decode
+import ast
 
 def decoder1(s):
-    return s.encode('utf-8').decode('unicode-escape')
+    try:
+        # return decoder2(s)
+        return ast.literal_eval(f'"""{s}"""') 
+    except:
+        traceback.print_exc()
+        with open('Exception.txt', 'w', encoding='utf-8') as f:
+            f.write(s)
+        sys.exit(1)
+    # return s.encode('utf-8').decode('unicode-escape')
 
 validator = r'C:\Users\ATRI\Desktop\data'
 import re
 non_ascii = re.compile(r'[^\x00-\x7F]')
 
 def decoder_all(s) -> str:
-    if re.search(non_ascii, s):
-        return decoder2(s)
-    try:
-        return decoder1(s)
-    except:
-        return decoder2(s)
+    # if re.search(non_ascii, s):
+        # return decoder2(s)
+    # try:
+    return decoder1(s)
+    # except:
+        # return decoder2(s)
     
 def fetcher(id, i):
     flg = False
@@ -332,27 +332,29 @@ for i in j_info:
         # P.desc = P.desc.replace('"source"', i['source'])
         # P.desc = P.desc.replace('"author"', i['author'])
 
-    # if i.attach in zip_index:
-    #     for fnamelist in zip_index[i.attach]:
-    #         flg = False
-    #         for it in desc_list:
-    #             if it['body'].find(f"/upload/{'/'.join(fnamelist)}") != -1:
-    #                 flg = True
-    #         if flg == False:
-    #             continue
+    if i.attach in zip_index:
+        for fnamelist in zip_index[i.attach]:
+            flg = False
+            for it in desc_list:
+                if it['body'].find(f"/upload/{'/'.join(fnamelist)}") != -1:
+                    flg = True
+            if flg == False:
+                continue
 
-    #         file_descriptor = uploaded.open('/'.join(fnamelist))
-    #         f_orm = FileStorage.upload(fnamelist[-1], file_descriptor)
-    #         f_orm.uploader = '$CSUOJ_Migrator$'
-    #         f_orm.save()
-    #         for it in desc_list:
-    #             it['body'] = it['body'].replace(f"/upload/{'/'.join(fnamelist)}",f"/oss/{f_orm.pk}")
+            file_descriptor = uploaded.open('/'.join(fnamelist))
+            f_orm = FileStorage.upload(fnamelist[-1], file_descriptor)
+            f_orm.uploader = '$CSUOJ_Migrator$'
+            f_orm.save()
+            for it in desc_list:
+                it['body'] = it['body'].replace(f"/upload/{'/'.join(fnamelist)}",f"/oss/{f_orm.pk}")
 
 
     nlist = []
     for it in desc_list:
         if it['body'].strip():
             nlist.append(it)
+            if nlist[-1]['type'] != 'copy':
+                nlist[-1]['body'] = decoder_all(nlist[-1]['body'])
     nlist.sort(key=lambda x:details_mp[x['head']])
     P.desc['default'] = nlist
     P.save()
