@@ -28,7 +28,8 @@ def generate_login_jwt(user: User, expires: float=86400,):
     return jwt.encode(
         {
             'user': str(user.pk),
-            'ts': str((datetime.datetime.now()+ datetime.timedelta(seconds=expires)).timestamp())
+            'cts': str(int(datetime.datetime.now().timestamp())),
+            'ts': str(int((datetime.datetime.now()+ datetime.timedelta(seconds=expires)).timestamp()))
         },  # payload, 有效载体
         secret.jwt_key,  # 进行加密签名的密钥
     )

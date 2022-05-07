@@ -48,6 +48,7 @@ def preload() -> FastAPI:
     @app.middleware('http')
     async def cors_everywhere(request: Request, call_next):
         logger.debug(request.headers)
+        # logger.debug(await request.body())
         logger.warning(request.cookies)
         # start_time = time.time()
         response = await call_next(request)

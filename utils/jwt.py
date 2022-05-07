@@ -30,7 +30,7 @@ async def should_login(auth: Request):
             g().user, g().msg = verify_login_jwt(Authorization)
             if g().user:
                 return g().user
-        raise HTTPException(401, "this operation requires login")
     except:
         logger.critical(traceback.format_exc())
         raise HTTPException(400, "data error")
+    raise HTTPException(401, "this operation requires login")

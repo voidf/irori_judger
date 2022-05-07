@@ -298,12 +298,12 @@ for i in j_info:
         {
             'head': 'sample_input',
             'body': fin,
-            'type': 'copy'
+            'type': 'sample_input'
         },
         {
             'head': 'sample_output',
             'body': fout,
-            'type': 'copy'
+            'type': 'sample_output'
         },
     ]
 
@@ -353,7 +353,7 @@ for i in j_info:
     for it in desc_list:
         if it['body'].strip():
             nlist.append(it)
-            if nlist[-1]['type'] != 'copy':
+            if nlist[-1]['type'].find('sample') == -1:
                 nlist[-1]['body'] = decoder_all(nlist[-1]['body'])
     nlist.sort(key=lambda x:details_mp[x['head']])
     P.desc['default'] = nlist

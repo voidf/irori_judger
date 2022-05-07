@@ -804,7 +804,7 @@ class JudgeHandler(ZlibPacketHandler):
             data = self._submission_cache
         else:
             self._submission_cache = data = Submission.objects.aggregate([
-                {'$match': {'_id': 1}},
+                {'$match': {'_id': id}},
                 {
                     '$lookup':{
                         'from': ContestParticipation._get_collection_name(),

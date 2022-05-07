@@ -67,18 +67,20 @@ async def create_submission(submit: Submit):
         3
     ))
 
-    return {'submission_id:': s.pk}
+    return {'submission_id': s.pk}
 
-
+from judge.judge_list import judge_list
 @submission_route.websocket('/{submission_id}')
 async def submission_async_detail(websocket: WebSocket, submission_id: str):
     """实时评测状态信息转发"""
-    async with broadcaster.subscribe('sub_'+submission_id) as subscriber:
-        async for event in subscriber:
-            if event.message.get('type') == 'done-submission':
-                await websocket.close(status.WS_1000_NORMAL_CLOSURE)
-                return
-            await websocket.send_text(event.message)
+    if submission_id in judge_list.submission_map:
+        async with broadcaster.subscribe('sub_'+submission_id) as subscriber:
+            async for event in subscriber:
+                if event.message.get('type') == 'done-submission':
+                    await websocket.close(status.WS_1000_NORMAL_CLOSURE)
+                    return
+                await websocket.send_text(event.message)
+    await websocket.close(status.WS_1000_NORMAL_CLOSURE)
 
 
 # from fapi.WebsocketSession import *
@@ -90,7 +92,7 @@ async def get_submission(submission_id: str):
     p: Submission = Submission.objects(pk=submission_id).first()
     if not p:
         raise HTTPException(404, 'no such submission')
-    return p.get_all_info()
+    return p.get_fields()
 
 
 @submission_route.put('/{submission_id}')
