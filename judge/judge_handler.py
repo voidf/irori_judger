@@ -178,9 +178,9 @@ class JudgeHandler(ZlibPacketHandler):
         self._problems = packet['problems']
         self.problems = dict(self._problems)
         self.executors = packet['executors']
-        for k, v in enumerate(self.executors):
+        for k in self.executors:
             if not Runtime.objects(pk=k):
-                Runtime(pk=v).save()
+                Runtime(pk=k).save()
         
                 
         self.name = packet['id']

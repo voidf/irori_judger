@@ -25,8 +25,13 @@ async def should_login(auth: Request):
     """请求预处理，将令牌放入线程作用域g()"""
     try:
         logger.debug(auth.client.host)
-        Authorization = auth.cookies.get('Authorization', None)
-        if Authorization:
+        
+        if Authorization := auth.cookies.get('Authorization', None):
+            g().user, g().msg = verify_login_jwt(Authorization)
+            if g().user:
+                return g().user
+        # TODO: [insecure] remove this
+        elif Authorization := auth.headers.get('jwt', None):
             g().user, g().msg = verify_login_jwt(Authorization)
             if g().user:
                 return g().user

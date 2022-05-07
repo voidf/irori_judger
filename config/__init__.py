@@ -17,6 +17,8 @@ class static: # 可公开的首选项配置
         '0.0.0.0',
         19999,
         debug=True,
+        # ssl_certfile='ssl/A.crt',
+        # ssl_keyfile='ssl/A.key',
         # reload=True,
         workers=1, # 在有有效的迁移方案前先保持单进程运行，大概也够用
         # 要不以后整个服务读写分离吧，写api单线程，与judger交互

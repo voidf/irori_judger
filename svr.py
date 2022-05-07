@@ -45,7 +45,7 @@ def preload() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.middleware('http')
+    @app.middleware('http') # TODO: [insecure] set to a fixed origin
     async def cors_everywhere(request: Request, call_next):
         logger.debug(request.headers)
         # logger.debug(await request.body())
@@ -55,7 +55,7 @@ def preload() -> FastAPI:
         # process_time = time.time() - start_time
         # response.headers["X-Process-Time"] = str(process_time)
         response.headers["Access-Control-Allow-Origin"] = request.headers.get('origin', '*')
-        logger.debug(response.headers)        
+        logger.debug(response.headers)
         return response
 
     # @app.middleware('https')

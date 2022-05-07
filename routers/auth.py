@@ -46,7 +46,7 @@ async def login_auth(response: Response, f: OAuth2PasswordRequestForm = Depends(
 
     token = generate_login_jwt(u, expires)
     response.set_cookie("Authorization", token, expires, samesite='None', secure=True)
-    return {"jwt": token}
+    return {"jwt": token} # TODO: [insecure] remove return jwt directly
 
 class register_form(BaseModel):
     username: str
@@ -65,7 +65,7 @@ async def register_auth(response: Response, f: OAuth2PasswordRequestForm = Depen
     u.save()
     token = generate_login_jwt(u, expires)
     response.set_cookie("Authorization", token, expires, samesite='None', secure=True)
-    return {"jwt": token}
+    return {"jwt": token} # TODO: [insecure] remove return jwt directly
 
 
 

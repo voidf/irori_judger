@@ -1,3 +1,4 @@
+from loguru import logger
 from mongoengine import *
 from typing import Optional, TypeVar, Union, get_type_hints
 import datetime
@@ -17,6 +18,7 @@ class Chkable():
             return pk
         tmp = cls.objects(pk=pk).first()
         if not tmp:
+            # logger.warning(f'creating {tmp}')
             return cls(pk=pk).save()
         return tmp
     @classmethod
